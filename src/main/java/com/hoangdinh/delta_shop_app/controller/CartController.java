@@ -1,0 +1,77 @@
+package com.hoangdinh.delta_shop_app.controller;
+
+import com.hoangdinh.delta_shop_app.dto.request.cart.AddToCartRequest;
+import com.hoangdinh.delta_shop_app.dto.request.cart.UpdateCartItemRequest;
+import com.hoangdinh.delta_shop_app.dto.response.cart.CartResponse;
+import com.hoangdinh.delta_shop_app.service.CartService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/cart")
+@RequiredArgsConstructor
+@Tag(name = "Cart", description = "APIs for shopping cart management")
+public class CartController {
+
+    private final CartService cartService;
+
+    @GetMapping
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Get current user cart")
+    public ResponseEntity<CartResponse> getCart(@RequestAttribute("userId") UUID userId) {
+        return ResponseEntity.ok(cartService.getCart(userId));
+    }
+
+    @PostMapping("/items")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Add item to cart")
+    public ResponseEntity<CartResponse> addToCart(
+            @RequestAttribute("userId") UUID userId,
+            @Valid @RequestBody AddToCartRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(cartService.addToCart(userId, request));
+    }
+
+    @PutMapping("/items")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Update cart item quantity")
+    public ResponseEntity<CartResponse> updateCartItem(
+            @RequestAttribute("userId") UUID userId,
+            @Valid @RequestBody UpdateCartItemRequest request) {
+        return ResponseEntity.ok(cartService.updateCartItem(userId, request));
+    }
+
+    @DeleteMapping("/items/{cartItemId}")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Remove item from cart")
+    public ResponseEntity<CartResponse> removeCartItem(
+            @RequestAttribute("userId") UUID userId,
+            @PathVariable UUID cartItemId) {
+        return ResponseEntity.ok(cartService.removeCartItem(userId, cartItemId));
+    }
+
+    @DeleteMapping("/clear")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Clear cart")
+    public ResponseEntity<Void> clearCart(@RequestAttribute("userId") UUID userId) {
+        cartService.clearCart(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/merge")
+    @Operation(summary = "Merge guest cart with user cart")
+    public ResponseEntity<CartResponse> mergeGuestCart(
+            @RequestAttribute("userId") UUID userId,
+            HttpServletRequest request) {
+        String sessionId = request.getSession().getId();
+        return ResponseEntity.ok(cartService.mergeGuestCart(userId, sessionId));
+    }
+}

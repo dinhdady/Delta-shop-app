@@ -1,0 +1,192 @@
+spring:
+  application:
+    name: delta-shop-app
+  # ============================================================
+  # DATASOURCE
+  # ============================================================
+  datasource:
+    url: jdbc:mysql://localhost:3306/deltashopapp?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456789
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-timeout: 30000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: DeltaSportsHikariPool
+  # ============================================================
+  # Mail
+  # ============================================================
+  mail:
+      host: smtp.gmail.com
+      port: 587
+      username: dinhhoang22072004@gmail.com
+      password: "elfi zuuy pscx jyga"
+      properties:
+        mail:
+          smtp:
+            auth: true
+            starttls:
+              enable: true
+              required: true
+            ssl:
+              trust: smtp.gmail.com
+            connectiontimeout: 5000
+            timeout: 5000
+            writetimeout: 5000
+      default-encoding: UTF-8
+  # ============================================================
+  # FILE
+  # ============================================================
+  web:
+    resources:
+      static-locations: classpath:/static/,file:uploads/
+      add-mappings: true
+  # ============================================================
+  # JPA / HIBERNATE
+  # ============================================================
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        generate_statistics: false
+    show-sql: false
+    open-in-view: false
+
+  # ============================================================
+  # FLYWAY
+  # ============================================================
+  flyway:
+    enabled: false
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: deltashopapp
+
+  # ============================================================
+  # REDIS
+  # ============================================================
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 1
+
+  # ============================================================
+  # CACHE
+  # ============================================================
+  cache:
+    type: none
+    redis:
+      time-to-live: 3600000
+
+  # ============================================================
+  # MULTIPART
+  # ============================================================
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# ============================================================
+# SERVER
+# ============================================================
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 2048
+  servlet:
+    context-path: /api
+
+# ============================================================
+# APP CONFIG
+# ============================================================
+app:
+  jwt:
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration: 86400000
+    refresh-expiration: 604800000
+
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:dp9ltogc9}
+    api-key: ${CLOUDINARY_API_KEY:587857755213897}
+    api-secret: ${CLOUDINARY_API_SECRET:o80O5e-0ZxH1jBmDWoJb_EovUBc}
+    secure: ${CLOUDINARY_SECURE:true}
+    folder: delta-sports
+
+  pagination:
+    default-page-size: 12
+    max-page-size: 100
+
+  vnpay:
+    tmn-code: ${VNPAY_TMN_CODE:JGV9MSIF}
+    hash-secret: ${VNPAY_HASH_SECRET:E9QLQ1W7KCLQKQLE5522R5JNRR7WIV8I}
+    url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+    api-url: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
+    return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/vnpay/return}
+
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:5173,${FRONTEND_URL:https://delta-sports.vn}
+
+  frontend:
+    url: http://localhost:4200
+
+# ============================================================
+# ACTUATOR
+# ============================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ============================================================
+# OPENAPI / SWAGGER
+# ============================================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  info:
+    title: Delta Sports API
+    description: REST API for Delta Sports Equipment E-commerce Platform
+    version: 1.0.0
+    contact:
+      name: Delta Sports Dev Team
+      email: dev@delta-sports.vn
+
+# ============================================================
+# LOGGING
+# ============================================================
+logging:
+  level:
+    root: INFO
+    com.hoangdinh.delta_shop_app: DEBUG
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
