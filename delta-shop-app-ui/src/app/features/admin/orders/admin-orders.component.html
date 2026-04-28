@@ -1,0 +1,140 @@
+<div class="admin-page-header">
+  <div class="header-content">
+    <h1>Đơn hàng</h1>
+    <p>Theo dõi xử lý đơn, thanh toán và vận chuyển.</p>
+  </div>
+</div>
+
+<div class="admin-card filters-card">
+  <div class="filters-row">
+    <div class="summary-box">
+      <strong>{{ totalElements() }}</strong>
+      <span>đơn hàng</span>
+    </div>
+
+    <div class="filter-group">
+      <select [(ngModel)]="selectedStatus" (change)="onFilter()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="PENDING">Chờ xử lý</option>
+        <option value="CONFIRMED">Đã xác nhận</option>
+        <option value="PROCESSING">Đang xử lý</option>
+        <option value="SHIPPED">Đang giao</option>
+        <option value="DELIVERED">Đã giao</option>
+        <option value="CANCELLED">Đã hủy</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="admin-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Mã đơn</th>
+          <th>Ngày đặt</th>
+          <th>Khách hàng</th>
+          <th>Tổng tiền</th>
+          <th>Trạng thái đơn</th>
+          <th>Thanh toán</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of orders()">
+          <td><strong>{{ order.orderNumber }}</strong></td>
+          <td>{{ formatDate(order.createdAt) }}</td>
+          <td>
+            <div class="customer-info">
+              <span>{{ order.shippingName }}</span>
+              <small class="text-gray">{{ order.shippingPhone }}</small>
+            </div>
+          </td>
+          <td><strong class="text-primary">{{ formatCurrency(order.totalAmount) }}</strong></td>
+          <td>
+            <select [value]="order.status" (change)="updateStatus(order, $event)" class="status-select" [ngClass]="order.status.toLowerCase()">
+              <option value="PENDING">Chờ xử lý</option>
+              <option value="CONFIRMED">Đã xác nhận</option>
+              <option value="PROCESSING">Đang xử lý</option>
+              <option value="SHIPPED">Đang giao</option>
+              <option value="DELIVERED">Đã giao</option>
+              <option value="CANCELLED">Đã hủy</option>
+            </select>
+          </td>
+          <td>
+            <select [value]="order.paymentStatus" (change)="updatePaymentStatus(order, $event)" class="status-select payment" [ngClass]="order.paymentStatus.toLowerCase()">
+              <option value="PENDING">Chờ thanh toán</option>
+              <option value="PAID">Đã thanh toán</option>
+              <option value="FAILED">Thất bại</option>
+              <option value="REFUNDED">Đã hoàn tiền</option>
+              <option value="PARTIALLY_REFUNDED">Hoàn tiền một phần</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn-icon" (click)="viewDetails(order)" title="Chi tiết">
+              <i class="bi bi-eye"></i>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="!loading() && orders().length === 0">
+          <td colspan="7" class="text-center py-5">Không tìm thấy đơn hàng nào.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination" *ngIf="totalPages() > 1">
+    <button (click)="changePage(currentPage() - 1)" [disabled]="currentPage() === 0">Trước</button>
+    <span>Trang {{ currentPage() + 1 }} / {{ totalPages() }}</span>
+    <button (click)="changePage(currentPage() + 1)" [disabled]="currentPage() + 1 >= totalPages()">Sau</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="selectedOrder()" (click)="closeDetails()">
+  <div class="detail-modal" (click)="$event.stopPropagation()">
+    <div class="detail-head">
+      <div>
+        <h2>{{ selectedOrder()?.orderNumber }}</h2>
+        <p>{{ formatDate(selectedOrder()?.createdAt || '') }}</p>
+      </div>
+      <button class="close-button" (click)="closeDetails()">x</button>
+    </div>
+
+    <div class="detail-grid" *ngIf="selectedOrder() as order">
+      <section class="detail-card">
+        <h3>Khách hàng</h3>
+        <p><strong>{{ order.shippingName }}</strong></p>
+        <p>{{ order.shippingPhone }}</p>
+        <p>{{ fullAddress(order) }}</p>
+      </section>
+
+      <section class="detail-card">
+        <h3>Thanh toán</h3>
+        <p>Trạng thái đơn: <strong>{{ labelStatus(order.status) }}</strong></p>
+        <p>Thanh toán: <strong>{{ labelPayment(order.paymentStatus) }}</strong></p>
+        <p>Phương thức: <strong>{{ order.paymentMethod }}</strong></p>
+      </section>
+    </div>
+
+    <section class="detail-card items-card" *ngIf="selectedOrder()?.items?.length">
+      <h3>Sản phẩm</h3>
+      <div class="item-row" *ngFor="let item of selectedOrder()?.items">
+        <div>
+          <strong>{{ item.productName }}</strong>
+          <div class="text-gray" *ngIf="item.variantName">{{ item.variantName }}</div>
+        </div>
+        <div>x{{ item.quantity }}</div>
+        <div>{{ formatCurrency(item.totalPrice) }}</div>
+      </div>
+    </section>
+
+    <section class="detail-card tracking-card" *ngIf="selectedOrder()">
+      <h3>Vận chuyển</h3>
+      <div class="tracking-form">
+        <input [(ngModel)]="trackingNumber" type="text" placeholder="Nhập mã vận đơn">
+        <button (click)="saveTrackingNumber()">Lưu mã vận đơn</button>
+      </div>
+      <p class="text-gray" *ngIf="selectedOrder()?.trackingNumber">Hiện tại: {{ selectedOrder()?.trackingNumber }}</p>
+    </section>
+  </div>
+</div>

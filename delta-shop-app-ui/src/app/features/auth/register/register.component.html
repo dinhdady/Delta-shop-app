@@ -1,0 +1,166 @@
+<!-- register.component.html - Thêm error messages -->
+<div class="auth-wrapper">
+  <div class="auth-visual">
+    <div class="visual-overlay"></div>
+    <div class="visual-content">
+      <h2 class="brand-name">JOIN THE CLUB</h2>
+      <p class="brand-tagline">UNLEASH YOUR POTENTIAL</p>
+    </div>
+  </div>
+
+  <div class="auth-content">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>TẠO TÀI KHOẢN</h1>
+        <p>Bắt đầu hành trình chinh phục cùng Delta Sports</p>
+      </div>
+
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Họ</label>
+            <input
+              type="text"
+              formControlName="firstName"
+              placeholder="Nguyễn"
+              [class.error]="hasError('firstName')"
+            >
+            <small class="error-message" *ngIf="hasError('firstName')">
+              {{ getFieldError('firstName') }}
+            </small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tên</label>
+            <input
+              type="text"
+              formControlName="lastName"
+              placeholder="Văn A"
+              [class.error]="hasError('lastName')"
+            >
+            <small class="error-message" *ngIf="hasError('lastName')">
+              {{ getFieldError('lastName') }}
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-wrapper">
+            <lucide-icon name="mail" class="input-icon"></lucide-icon>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="name@example.com"
+              [class.error]="hasError('email')"
+            >
+          </div>
+          <small class="error-message" *ngIf="hasError('email')">
+            {{ getFieldError('email') }}
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số điện thoại</label>
+          <div class="input-wrapper">
+            <lucide-icon name="phone" class="input-icon"></lucide-icon>
+            <input
+              type="tel"
+              formControlName="phone"
+              placeholder="0912345678"
+              [class.error]="hasError('phone')"
+            >
+          </div>
+          <small class="error-message" *ngIf="hasError('phone')">
+            {{ getFieldError('phone') }}
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mật khẩu</label>
+          <div class="input-wrapper">
+            <lucide-icon name="shield" class="input-icon"></lucide-icon>
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="••••••••"
+              [class.error]="hasError('password')"
+            >
+            <button type="button" class="password-toggle" (click)="togglePassword()">
+              <lucide-icon [name]="showPassword ? 'eye-off' : 'eye'"></lucide-icon>
+            </button>
+          </div>
+
+          <!-- Password requirements -->
+          <div class="password-requirements" *ngIf="registerForm.get('password')?.touched || registerForm.get('password')?.dirty">
+            <small [class.valid]="passwordStrength.hasMinLength">
+              <lucide-icon [name]="passwordStrength.hasMinLength ? 'check-circle' : 'circle'"></lucide-icon>
+              Ít nhất 6 ký tự
+            </small>
+            <small [class.valid]="passwordStrength.hasUpperCase">
+              <lucide-icon [name]="passwordStrength.hasUpperCase ? 'check-circle' : 'circle'"></lucide-icon>
+              Ít nhất 1 chữ hoa (A-Z)
+            </small>
+            <small [class.valid]="passwordStrength.hasLowerCase">
+              <lucide-icon [name]="passwordStrength.hasLowerCase ? 'check-circle' : 'circle'"></lucide-icon>
+              Ít nhất 1 chữ thường (a-z)
+            </small>
+            <small [class.valid]="passwordStrength.hasNumber">
+              <lucide-icon [name]="passwordStrength.hasNumber ? 'check-circle' : 'circle'"></lucide-icon>
+              Ít nhất 1 số (0-9)
+            </small>
+          </div>
+
+          <small class="error-message" *ngIf="hasError('password') && !registerForm.get('password')?.errors?.['passwordStrength']">
+            {{ getFieldError('password') }}
+          </small>
+        </div>
+
+        <!-- Phần confirm password -->
+        <div class="form-group">
+          <label class="form-label">Xác nhận mật khẩu *</label>
+          <div class="input-wrapper">
+            <lucide-icon name="check-circle" class="input-icon"></lucide-icon>
+            <input
+              [type]="showConfirmPassword ? 'text' : 'password'"
+              formControlName="confirmPassword"
+              placeholder="••••••••"
+              [class.error]="registerForm.get('confirmPassword')?.touched &&
+                     (registerForm.get('confirmPassword')?.invalid || registerForm.hasError('passwordMismatch'))"
+            >
+            <button type="button" class="password-toggle" (click)="toggleConfirmPassword()">
+              <lucide-icon [name]="showConfirmPassword ? 'eye-off' : 'eye'"></lucide-icon>
+            </button>
+          </div>
+          <small class="error-message" *ngIf="getConfirmPasswordError()">
+            {{ getConfirmPasswordError() }}
+          </small>
+        </div>
+
+        <div class="form-options">
+          <label class="checkbox-container">
+            <input type="checkbox" formControlName="agreeTerms">
+            <span class="checkmark"></span>
+            <span class="label-text">Tôi đồng ý với <a href="#">Điều khoản sử dụng</a></span>
+          </label>
+          <small class="error-message" *ngIf="hasError('agreeTerms')">
+            {{ getFieldError('agreeTerms') }}
+          </small>
+        </div>
+
+        <div class="alert-error" *ngIf="errorMessage">
+          <lucide-icon name="alert-circle" class="alert-icon"></lucide-icon>
+          {{ errorMessage }}
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="registerForm.invalid || isLoading">
+          <span class="spinner" *ngIf="isLoading"></span>
+          <span *ngIf="!isLoading">ĐĂNG KÝ NGAY</span>
+        </button>
+
+        <p class="auth-footer">
+          Đã có tài khoản? <a routerLink="/auth/login">Đăng nhập</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>

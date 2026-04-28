@@ -1,0 +1,86 @@
+<div class="admin-page-header">
+  <div class="header-content">
+    <h1>Thương hiệu</h1>
+    <p>Quản lý các đối tác và thương hiệu sản phẩm.</p>
+  </div>
+  <button class="btn btn-primary" (click)="addBrand()">
+    <i class="bi bi-plus-lg"></i> Thêm thương hiệu mới
+  </button>
+</div>
+
+<div class="admin-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Logo</th>
+          <th>Tên thương hiệu</th>
+          <th>Slug</th>
+          <th>Sản phẩm</th>
+          <th>Trạng thái</th>
+          <th>Nổi bật</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let brand of brands()">
+          <td class="logo-cell">
+            <img
+              *ngIf="brand.logoUrl"
+              [src]="brand.logoUrl"
+              [alt]="brand.name"
+              class="brand-logo"
+              (error)="onImageError($event)"
+            >
+            <div *ngIf="!brand.logoUrl" class="no-logo">
+              <i class="bi bi-building"></i>
+            </div>
+          </td>
+          <td>
+            <strong>{{ brand.name }}</strong>
+            <div *ngIf="brand.countryOfOrigin" class="country-info">
+              <i class="bi bi-geo-alt"></i> {{ brand.countryOfOrigin }}
+            </div>
+          </td>
+          <td><code>{{ brand.slug }}</code></td>
+          <td>
+            <span class="product-count">{{ brand.productCount || 0 }}</span>
+          </td>
+          <td>
+            <span class="status-badge" [class.active]="brand.active" [class.inactive]="!brand.active"
+                  (click)="toggleStatus(brand.id)" style="cursor: pointer;">
+              {{ brand.active ? 'Đang hoạt động' : 'Tạm dừng' }}
+            </span>
+          </td>
+          <td>
+            <span class="featured-badge" [class.featured]="brand.featured"
+                  (click)="toggleFeatured(brand.id)" style="cursor: pointer;">
+              <i class="bi" [class.bi-star-fill]="brand.featured" [class.bi-star]="!brand.featured"></i>
+              {{ brand.featured ? 'Nổi bật' : 'Thường' }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn-icon" (click)="editBrand(brand)" title="Sửa">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button class="btn-icon btn-icon-danger" (click)="deleteBrand(brand.id)" title="Xóa">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="brands().length === 0">
+          <td colspan="7" class="text-center py-5">Chưa có thương hiệu nào.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-brand-form
+  *ngIf="showForm()"
+  [brand]="editingBrand()"
+  (save)="onSave($event)"
+  (cancel)="closeForm()">
+</app-brand-form>

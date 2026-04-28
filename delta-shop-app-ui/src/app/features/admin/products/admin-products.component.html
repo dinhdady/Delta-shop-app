@@ -1,0 +1,178 @@
+<div class="admin-page-header">
+  <div class="header-content">
+    <h1>Sản phẩm</h1>
+    <p>Quản lý danh sách sản phẩm trong cửa hàng của bạn.</p>
+  </div>
+  <button class="btn btn-primary" (click)="addProduct()">
+    <i class="bi bi-plus-lg"></i> Thêm sản phẩm mới
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="admin-card filters-card">
+  <div class="filters-row">
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" placeholder="Tìm kiếm tên sản phẩm, mã SKU...">
+    </div>
+
+    <div class="filter-group">
+      <select [(ngModel)]="selectedCategory" (change)="onSearch()">
+        <option value="">Tất cả danh mục</option>
+        <option *ngFor="let cat of categories()" [value]="cat.id">{{ cat.name }}</option>
+      </select>
+
+      <select [(ngModel)]="selectedStatus" (change)="onSearch()">
+        <option value="">Tất cả trạng thái</option>
+        <option value="ACTIVE">Đang bán</option>
+        <option value="INACTIVE">Ngừng bán</option>
+        <option value="OUT_OF_STOCK">Hết hàng</option>
+      </select>
+
+      <button class="btn btn-outline" (click)="onSearch()">Lọc</button>
+    </div>
+  </div>
+</div>
+
+<!-- Products Table -->
+<div class="admin-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+      <tr>
+        <th>Sản phẩm</th>
+        <th>Hình ảnh</th>
+        <th>Danh mục</th>
+        <th>Giá & Kho</th>
+        <th>Nổi bật</th>
+        <th>Trạng thái</th>
+        <th>Thao tác</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr *ngFor="let product of products()">
+        <td>
+          <div class="product-main-info">
+            <span class="product-name">{{ product.name }}</span>
+            <span class="product-sku">SKU: {{ product.sku || 'N/A' }}</span>
+          </div>
+        </td>
+        <td>
+          <!-- Fixed size image with click to zoom -->
+          <div class="product-image-cell" *ngIf="getProductImage(product); else noImage">
+            <img [src]="getProductImage(product)"
+                 [alt]="product.name"
+                 class="product-thumbnail"
+                 (click)="openImageModal(product, $event)"
+                 [title]="'Click để phóng to'"
+                 onerror="this.style.display='none'; this.nextElementSibling?.style.setProperty('display', 'flex')">
+            <div class="image-error-placeholder" style="display: none;">
+              <i class="bi bi-image"></i>
+            </div>
+          </div>
+          <ng-template #noImage>
+            <div class="no-image-placeholder" (click)="openImageModal(product, $event)">
+              <i class="bi bi-image"></i>
+            </div>
+          </ng-template>
+        </td>
+        <td>
+          <span class="category-badge">{{ product.categoryName || product.category?.name || 'Chưa phân loại' }}</span>
+        </td>
+        <td>
+          <div class="price-stock-info">
+            <div class="price-info">
+              <span class="current-price">{{ (product.basePrice || product.price) | currency:'VND':'symbol':'1.0-0' }}</span>
+              <span class="original-price" *ngIf="product.comparePrice && product.comparePrice > product.basePrice">
+                  {{ product.comparePrice | currency:'VND':'symbol':'1.0-0' }}
+                </span>
+            </div>
+            <span class="stock-badge" [class.low-stock]="product.stockQuantity < 10" [class.out-of-stock]="product.stockQuantity === 0">
+                Kho: {{ product.stockQuantity || 0 }}
+              </span>
+          </div>
+        </td>
+        <td>
+          <button class="btn-toggle-featured" [class.active]="product.featured" (click)="toggleFeatured(product)" [title]="product.featured ? 'Bỏ nổi bật' : 'Đặt nổi bật'">
+            <i class="bi" [ngClass]="product.featured ? 'bi-star-fill' : 'bi-star'"></i>
+          </button>
+        </td>
+        <td>
+          <div class="status-toggle-wrapper">
+              <span class="status-badge" [ngClass]="getStatusClass(product.status)">
+                {{ getStatusText(product.status) }}
+              </span>
+            <button class="btn-switch-status" (click)="toggleStatus(product)" title="Đổi trạng thái">
+              <i class="bi bi-arrow-repeat"></i>
+            </button>
+          </div>
+        </td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn-icon" (click)="editProduct(product)" title="Sửa sản phẩm">
+              <i class="bi bi-pencil-square"></i>
+            </button>
+            <button class="btn-icon btn-icon-danger" (click)="deleteProduct(product.id)" title="Xóa sản phẩm">
+              <i class="bi bi-trash3"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr *ngIf="products().length === 0">
+        <td colspan="7" class="text-center py-5">
+          <div class="empty-state">
+            <i class="bi bi-box-seam"></i>
+            <p>Không tìm thấy sản phẩm nào.</p>
+          </div>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Pagination -->
+<div class="pagination-wrapper" *ngIf="totalPages() > 1">
+  <div class="pagination-info">
+    Hiển thị {{ currentPage() * pageSize + 1 }} - {{ (currentPage() + 1) * pageSize > totalElements() ? totalElements() : (currentPage() + 1) * pageSize }} trong tổng số {{ totalElements() }} sản phẩm
+  </div>
+  <div class="pagination-buttons">
+    <button class="btn-page" [disabled]="currentPage() === 0" (click)="onPageChange(currentPage() - 1)">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+    <button *ngFor="let p of [].constructor(totalPages()); let i = index"
+            class="btn-page"
+            [class.active]="i === currentPage()"
+            (click)="onPageChange(i)">
+      {{ i + 1 }}
+    </button>
+    <button class="btn-page" [disabled]="currentPage() === totalPages() - 1" (click)="onPageChange(currentPage() + 1)">
+      <i class="bi bi-chevron-right"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Image Modal (Zoom) -->
+<div class="image-modal" *ngIf="showModal()" (click)="closeModal()" (keydown)="onModalKeydown($event)" tabindex="0">
+  <div class="modal-overlay"></div>
+  <div class="modal-container">
+    <button class="modal-close" (click)="closeModal()" title="Đóng">
+      <i class="bi bi-x-lg"></i>
+    </button>
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <img [src]="modalImageUrl()" [alt]="modalImageAlt()" class="modal-image">
+    </div>
+    <button class="modal-zoom-out" (click)="closeModal()" title="Nhấn để đóng">
+      <i class="bi bi-arrows-angle-expand"></i>
+    </button>
+  </div>
+</div>
+
+<app-product-form
+  *ngIf="showForm()"
+  [product]="editingProduct()"
+  [categories]="categories()"
+  [brands]="brands()"
+  (save)="onSave($event)"
+  (cancel)="closeForm()">
+</app-product-form>

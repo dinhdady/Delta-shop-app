@@ -1,0 +1,70 @@
+<div class="admin-page-header">
+  <div class="header-content">
+    <h1>Người dùng</h1>
+    <p>Quản lý tài khoản và phân quyền người dùng.</p>
+  </div>
+</div>
+
+<div class="admin-card filters-card">
+  <div class="filters-row">
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" placeholder="Tìm theo tên, email, số điện thoại...">
+    </div>
+    <button class="btn btn-outline" (click)="onSearch()">Tìm kiếm</button>
+  </div>
+</div>
+
+<div class="admin-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Người dùng</th>
+          <th>Email</th>
+          <th>Số điện thoại</th>
+          <th>Vai trò</th>
+          <th>Trạng thái</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of users()">
+          <td>
+            <div class="user-cell">
+              <div class="avatar">{{ getInitials(user.fullName) }}</div>
+              <div class="info">
+                <strong>{{ user.fullName }}</strong>
+                <small class="text-gray">{{ user.email }}</small>
+              </div>
+            </div>
+          </td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.phone || 'N/A' }}</td>
+          <td>
+            <select [value]="user.role" (change)="changeRole(user, $event)" class="role-select">
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
+              <option value="SUPER_ADMIN">Super Admin</option>
+            </select>
+          </td>
+          <td>
+            <span class="status-badge" [class.active]="user.status === 'ACTIVE'" [class.inactive]="user.status !== 'ACTIVE'" (click)="toggleUserStatus(user)" style="cursor: pointer;">
+              {{ user.status === 'ACTIVE' ? 'Đang hoạt động' : (user.status === 'BANNED' ? 'Đã khóa' : user.status) }}
+            </span>
+          </td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn-icon" title="Chi tiết">
+                <i class="bi bi-info-circle"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="users().length === 0">
+          <td colspan="6" class="text-center py-5">Không tìm thấy người dùng nào.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

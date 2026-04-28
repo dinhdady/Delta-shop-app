@@ -1,0 +1,73 @@
+<div class="admin-page-header">
+  <div class="header-content">
+    <h1>Danh mục</h1>
+    <p>Quản lý các nhóm sản phẩm trong cửa hàng.</p>
+  </div>
+  <button class="btn btn-primary" (click)="addCategory()">
+    <i class="bi bi-plus-lg"></i> Thêm danh mục mới
+  </button>
+</div>
+
+<div class="admin-card">
+  <div class="table-responsive">
+    <table class="admin-table">
+      <thead>
+      <tr>
+        <th>Hình ảnh</th>
+        <th>Tên danh mục</th>
+        <th>Slug</th>
+        <th>Sản phẩm</th>
+        <th>Trạng thái</th>
+        <th>Thao tác</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr *ngFor="let cat of categories()">
+        <td>
+          <div class="category-image">
+            <img
+              [src]="cat.imageUrl || 'https://via.placeholder.com/50x50?text=No+Image'"
+              [alt]="cat.name"
+              (error)="cat.imageUrl = 'https://via.placeholder.com/50x50?text=No+Image'"
+            >
+          </div>
+        </td>
+        <td>
+          <div class="category-info">
+            <strong>{{ cat.name }}</strong>
+            <small *ngIf="cat.parentName" class="text-gray">Thuộc: {{ cat.parentName }}</small>
+          </div>
+        </td>
+        <td><code>{{ cat.slug }}</code></td>
+        <td>{{ cat.productCount || 0 }}</td>
+        <td>
+            <span class="status-badge" [class.active]="cat.active" [class.inactive]="!cat.active" (click)="toggleStatus(cat.id)" style="cursor: pointer;">
+              {{ cat.active ? 'Đang hoạt động' : 'Tạm dừng' }}
+            </span>
+        </td>
+        <td>
+          <div class="action-buttons">
+            <button class="btn-icon" (click)="editCategory(cat)" title="Sửa">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn-icon btn-icon-danger" (click)="deleteCategory(cat.id)" title="Xóa">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      <tr *ngIf="categories().length === 0">
+        <td colspan="6" class="text-center py-5">Chưa có danh mục nào.</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-category-form
+  *ngIf="showForm()"
+  [category]="editingCategory()"
+  [allCategories]="categories()"
+  (save)="onSave($event)"
+  (cancel)="closeForm()">
+</app-category-form>

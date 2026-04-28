@@ -1,0 +1,97 @@
+<div class="auth-wrapper">
+  <!-- Background Image Section -->
+  <div class="auth-visual">
+    <div class="visual-overlay"></div>
+    <div class="visual-content">
+      <h2 class="brand-name">DELTA SPORTS</h2>
+      <p class="brand-tagline">VICTORY STARTS HERE</p>
+    </div>
+  </div>
+
+  <!-- Form Section -->
+  <div class="auth-content">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>ĐĂNG NHẬP</h1>
+        <p>Chào mừng bạn trở lại với Delta Sports</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <div class="input-wrapper">
+            <lucide-icon name="mail" class="input-icon"></lucide-icon>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="name@example.com"
+              [class.error]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+            >
+          </div>
+          <div class="error-message" *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid">
+            <span *ngIf="loginForm.get('email')?.errors?.['required']">Vui lòng nhập email</span>
+            <span *ngIf="loginForm.get('email')?.errors?.['email']">Email không hợp lệ</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mật khẩu</label>
+          <div class="input-wrapper">
+            <lucide-icon name="shield" class="input-icon"></lucide-icon>
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              placeholder="••••••••"
+              [class.error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+            >
+            <button type="button" class="password-toggle" (click)="togglePassword()">
+              <lucide-icon [name]="showPassword ? 'eye-off' : 'eye'"></lucide-icon>
+            </button>
+          </div>
+          <div class="error-message" *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.invalid">
+            <span *ngIf="loginForm.get('password')?.errors?.['required']">Vui lòng nhập mật khẩu</span>
+            <span *ngIf="loginForm.get('password')?.errors?.['minlength']">Mật khẩu phải từ 6 ký tự</span>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="checkbox-container">
+            <input type="checkbox" formControlName="remember">
+            <span class="checkmark"></span>
+            <span class="label-text">Ghi nhớ tôi</span>
+          </label>
+          <a routerLink="/auth/forgot-password" class="forgot-link">Quên mật khẩu?</a>
+        </div>
+
+        <div class="alert-error" *ngIf="errorMessage">
+          <lucide-icon name="alert-circle" class="alert-icon"></lucide-icon>
+          {{ errorMessage }}
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="loginForm.invalid || isLoading">
+          <span class="spinner" *ngIf="isLoading"></span>
+          <span *ngIf="!isLoading">ĐĂNG NHẬP</span>
+        </button>
+
+        <div class="auth-divider">
+          <span>HOẶC</span>
+        </div>
+
+        <div class="social-auth">
+          <button type="button" class="btn-social">
+            <lucide-icon name="facebook" class="social-icon"></lucide-icon>
+            Facebook
+          </button>
+          <button type="button" class="btn-social">
+            <lucide-icon name="twitter" class="social-icon"></lucide-icon>
+            Twitter
+          </button>
+        </div>
+
+        <p class="auth-footer">
+          Chưa có tài khoản? <a routerLink="/auth/register">Đăng ký ngay</a>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>

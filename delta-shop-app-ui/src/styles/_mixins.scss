@@ -1,0 +1,27 @@
+/* 
+  Delta Sports App - Mixins
+*/
+
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == 'small' {
+    @media (max-width: 576px) { @content; }
+  } @else if $breakpoint == 'medium' {
+    @media (max-width: 768px) { @content; }
+  } @else if $breakpoint == 'large' {
+    @media (max-width: 992px) { @content; }
+  } @else if $breakpoint == 'xlarge' {
+    @media (max-width: 1200px) { @content; }
+  }
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

@@ -1,0 +1,23 @@
+/* 
+  Delta Sports App - Variables
+  No gradient allowed, solid flat bold colors only.
+*/
+
+:root {
+  --color-primary: #E63946;      /* Đỏ */
+  --color-secondary: #F4A261;    /* Cam */
+  --color-dark: #0D0D0D;         /* Đen */
+  --color-dark-alt: #1A1A1A;     /* Xám đậm */
+  --color-light: #F8F8F8;        /* Trắng */
+  --color-gray: #6B6B6B;         /* Xám chữ */
+  --color-border: #E0E0E0;       /* Viền */
+
+  --font-heading: 'Barlow Condensed', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  
+  --radius: 6px;
+  --transition: 0.2s ease;
+  
+  --container-max-width: 1200px;
+  --container-padding: 2rem;
+}
