@@ -6,6 +6,7 @@ import com.hoangdinh.delta_shop_app.dto.request.review.ReviewModerationRequest;
 import com.hoangdinh.delta_shop_app.dto.response.PageResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewStatsResponse;
+import com.hoangdinh.delta_shop_app.dto.response.review.ReviewEligibilityResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -19,10 +20,12 @@ public interface ReviewService {
     void voteHelpful(UUID reviewId, UUID userId, boolean helpful);
 
     // Query operations
-    PageResponse<ReviewResponse> getProductReviews(UUID productId, int page, int size, String sortBy);
+    PageResponse<ReviewResponse> getProductReviews(UUID productId, UUID userId, int page, int size, String sortBy);
     PageResponse<ReviewResponse> getUserReviews(UUID userId, int page, int size);
     ReviewResponse getReviewById(UUID reviewId);
     ReviewStatsResponse getProductReviewStats(UUID productId);
+    ReviewEligibilityResponse getReviewEligibility(UUID userId, UUID orderItemId);
+    ReviewEligibilityResponse getProductReviewEligibility(UUID userId, UUID productId);
 
     // Admin operations
     PageResponse<ReviewResponse> getPendingReviews(int page, int size);

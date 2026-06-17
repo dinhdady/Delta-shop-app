@@ -87,7 +87,8 @@ export class TokenInterceptor implements HttpInterceptor {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     this.toastr.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
-    this.router.navigate(['/login']);
+    this.router.navigate(['/auth/login']);
   }
 }

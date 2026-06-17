@@ -19,6 +19,7 @@ export class AdminLayoutComponent implements OnInit {
   currentUser = this.authService.currentUser;
   currentRoute = '';
   pendingCount = 0;
+  sidebarCollapsed = false;
 
   constructor() {
     this.router.events.subscribe(() => {
@@ -26,6 +27,7 @@ export class AdminLayoutComponent implements OnInit {
       if (url.includes('products')) this.currentRoute = 'Sản phẩm';
       else if (url.includes('categories')) this.currentRoute = 'Danh mục';
       else if (url.includes('brands')) this.currentRoute = 'Thương hiệu';
+      else if (url.includes('promotions')) this.currentRoute = 'Khuyến mãi';
       else if (url.includes('orders')) this.currentRoute = 'Đơn hàng';
       else if (url.includes('users')) this.currentRoute = 'Người dùng';
       else if (url.includes('contacts')) this.currentRoute = 'Liên hệ';
@@ -54,5 +56,9 @@ export class AdminLayoutComponent implements OnInit {
   logout() {
     this.authService.logout();
     this.router.navigate(['/auth/login']);
+  }
+
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
   }
 }

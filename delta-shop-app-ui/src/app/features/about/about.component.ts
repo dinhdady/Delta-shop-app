@@ -13,7 +13,7 @@ import { RouterModule } from '@angular/router';
       <div class="page-header">
         <div class="container">
           <h1>Về Chúng Tôi</h1>
-          <p>Khám phá câu chuyện của Delta Shop - Nơi chất lượng và đam mê gặp nhau</p>
+          <p>Khơi nguồn đam mê thể thao</p>
         </div>
       </div>
 
@@ -1057,6 +1057,9 @@ import { RouterModule } from '@angular/router';
     }
 
     @media (max-width: 768px) {
+      .page-header {
+        padding: 40px 0;
+      }
       .page-header h1 {
         font-size: 32px;
       }

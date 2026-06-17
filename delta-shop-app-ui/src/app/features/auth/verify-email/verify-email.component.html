@@ -1,0 +1,80 @@
+<div class="auth-wrapper">
+  <!-- Visual Side -->
+  <div class="auth-visual">
+    <div class="visual-overlay"></div>
+    <div class="visual-content">
+      <h2 class="brand-name">GET BACK IN</h2>
+      <p class="brand-tagline">NEVER GIVE UP</p>
+    </div>
+  </div>
+
+  <!-- Content Side -->
+  <div class="auth-content">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1>XÁC THỰC TÀI KHOẢN</h1>
+        <p>Vui lòng nhập mã OTP đã được gửi đến email của bạn</p>
+      </div>
+
+      <form [formGroup]="verifyForm" (ngSubmit)="onSubmit()" class="auth-form">
+        <div class="form-group">
+          <label class="form-label">Email đăng ký</label>
+          <div class="input-wrapper">
+            <lucide-icon name="mail" class="input-icon"></lucide-icon>
+            <input
+              type="email"
+              formControlName="email"
+              placeholder="example@gmail.com"
+              [class.error]="verifyForm.get('email')?.invalid && verifyForm.get('email')?.touched"
+            >
+          </div>
+          <div class="error-message" *ngIf="verifyForm.get('email')?.invalid && verifyForm.get('email')?.touched">
+            <span *ngIf="verifyForm.get('email')?.errors?.['required']">Vui lòng nhập email</span>
+            <span *ngIf="verifyForm.get('email')?.errors?.['email']">Email không hợp lệ</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mã OTP (6 chữ số)</label>
+          <div class="input-wrapper">
+            <lucide-icon name="shield-check" class="input-icon"></lucide-icon>
+            <input
+              type="text"
+              formControlName="otp"
+              placeholder="123456"
+              maxlength="6"
+              class="otp-input"
+              [class.error]="verifyForm.get('otp')?.invalid && verifyForm.get('otp')?.touched"
+            >
+          </div>
+          <div class="error-message" *ngIf="verifyForm.get('otp')?.invalid && verifyForm.get('otp')?.touched">
+            <span *ngIf="verifyForm.get('otp')?.errors?.['required']">Vui lòng nhập mã OTP</span>
+            <span *ngIf="verifyForm.get('otp')?.errors?.['minlength']">Mã OTP phải có đúng 6 chữ số</span>
+          </div>
+        </div>
+
+        <div class="alert-success" *ngIf="successMessage">
+          <lucide-icon name="check-circle" class="alert-icon"></lucide-icon>
+          {{ successMessage }}
+        </div>
+
+        <div class="alert-error" *ngIf="errorMessage">
+          <lucide-icon name="alert-circle" class="alert-icon"></lucide-icon>
+          {{ errorMessage }}
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="verifyForm.invalid || isLoading">
+          <span class="spinner" *ngIf="isLoading"></span>
+          <span *ngIf="!isLoading">XÁC THỰC</span>
+        </button>
+
+        <p class="auth-footer">
+          <a routerLink="/auth/register" class="back-link">
+            <lucide-icon name="arrow-left" class="back-icon"></lucide-icon>
+            Quay lại Đăng ký
+          </a>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>

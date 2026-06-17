@@ -21,16 +21,3 @@ public class ChartDataResponse {
     private String yAxisLabel;
 }
 
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-class Dataset {
-    private String label;
-    private List<Number> data;
-    private String backgroundColor;
-    private String borderColor;
-    private int borderWidth;
-    private String fill;
-    private String tension;
-}

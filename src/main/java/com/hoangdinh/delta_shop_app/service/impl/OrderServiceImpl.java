@@ -12,7 +12,6 @@ import com.hoangdinh.delta_shop_app.enums.PaymentStatus;
 import com.hoangdinh.delta_shop_app.exception.BusinessException;
 import com.hoangdinh.delta_shop_app.exception.ResourceNotFoundException;
 import com.hoangdinh.delta_shop_app.repository.*;
-import com.hoangdinh.delta_shop_app.service.EmailService;
 import com.hoangdinh.delta_shop_app.service.LoyaltyService;
 import com.hoangdinh.delta_shop_app.service.NotificationService;
 import com.hoangdinh.delta_shop_app.service.OrderService;
@@ -30,6 +29,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.UUID;
@@ -45,7 +47,6 @@ public class OrderServiceImpl implements OrderService {
     private final ProductVariantRepository variantRepository;
     private final PromotionRepository promotionRepository;
     private final UserRepository userRepository;
-    private final EmailService emailService;
     private final NotificationService notificationService;
     private final LoyaltyService loyaltyService;
 
@@ -173,7 +174,7 @@ public class OrderServiceImpl implements OrderService {
             cartRepository.save(cart);
         });
 
-        emailService.sendOrderConfirmation(saved);
+        notificationService.notifyOrderPlaced(saved);
 
         log.info("Order created: {} for user {}", saved.getOrderNumber(), userId);
         return mapToDetailResponse(saved);
@@ -238,7 +239,12 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public void bulkUpdateStatus(List<UUID> orderIds, OrderStatus status, UUID adminId) {
-
+        orderIds.forEach(orderId -> {
+            OrderUpdateStatusRequest request = new OrderUpdateStatusRequest();
+            request.setStatus(status);
+            request.setNote("Cập nhật hàng loạt");
+            updateStatus(orderId, request, adminId);
+        });
     }
 
     @Override
@@ -289,7 +295,12 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderDetailResponse addAdminNote(UUID orderId, String note, UUID adminId) {
-        return null;
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        User admin = adminId != null ? userRepository.findById(adminId).orElse(null) : null;
+        order.getStatusHistory().add(OrderStatusHistory.builder().order(order).fromStatus(order.getStatus())
+                .toStatus(order.getStatus()).note(note).createdBy(admin).build());
+        return mapToDetailResponse(orderRepository.save(order));
     }
 
     @Override
@@ -321,92 +332,197 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderDetailResponse restoreOrder(UUID orderId, UUID adminId) {
-        return null;
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        if (order.getStatus() != OrderStatus.CANCELLED) return mapToDetailResponse(order);
+        order.setStatus(OrderStatus.PENDING);
+        order.setCancelledAt(null);
+        order.setCancelReason(null);
+        return mapToDetailResponse(orderRepository.save(order));
     }
 
     @Override
     public OrderStatisticsResponse getOrderStatistics() {
-        return null;
+        LocalDateTime now = LocalDateTime.now();
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (OrderStatus value : OrderStatus.values()) byStatus.put(value.name(), orderRepository.countByStatus(value));
+        return OrderStatisticsResponse.builder()
+                .totalOrders(orderRepository.count())
+                .pendingOrders(orderRepository.countByStatus(OrderStatus.PENDING))
+                .confirmedOrders(orderRepository.countByStatus(OrderStatus.CONFIRMED))
+                .processingOrders(orderRepository.countByStatus(OrderStatus.PROCESSING))
+                .shippedOrders(orderRepository.countByStatus(OrderStatus.SHIPPED))
+                .deliveredOrders(orderRepository.countByStatus(OrderStatus.DELIVERED))
+                .cancelledOrders(orderRepository.countByStatus(OrderStatus.CANCELLED))
+                .refundedOrders(orderRepository.countByStatus(OrderStatus.REFUNDED))
+                .totalRevenue(orderRepository.getTotalRevenue())
+                .todayRevenue(orderRepository.getTotalRevenueForPeriod(now.toLocalDate().atStartOfDay(), now))
+                .thisWeekRevenue(orderRepository.getTotalRevenueForPeriod(now.minusDays(7), now))
+                .thisMonthRevenue(orderRepository.getTotalRevenueForPeriod(now.minusDays(30), now))
+                .averageOrderValue(orderRepository.getAverageOrderValue())
+                .orderGrowthRate(0)
+                .ordersByStatus(byStatus)
+                .revenueByStatus(Map.of())
+                .build();
     }
 
     @Override
     public DailyOrderStatisticsResponse getDailyStatistics(LocalDate date) {
-        return null;
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        long total = orderRepository.countByCreatedAtBetween(start, end);
+        BigDecimal revenue = orderRepository.getTotalRevenueForPeriod(start, end);
+        return DailyOrderStatisticsResponse.builder()
+                .date(date)
+                .totalOrders(total)
+                .completedOrders(orderRepository.countByStatusAndCreatedAtBetween(OrderStatus.DELIVERED, start, end))
+                .cancelledOrders(orderRepository.countByStatusAndCreatedAtBetween(OrderStatus.CANCELLED, start, end))
+                .totalRevenue(revenue)
+                .averageOrderValue(total > 0 ? revenue.divide(BigDecimal.valueOf(total), 2, java.math.RoundingMode.HALF_UP) : BigDecimal.ZERO)
+                .build();
     }
 
     @Override
     public MonthlyOrderStatisticsResponse getMonthlyStatistics(int year, int month) {
-        return null;
+        LocalDate first = LocalDate.of(year, month, 1);
+        List<DailyOrderStatisticsResponse> days = first.datesUntil(first.plusMonths(1)).map(this::getDailyStatistics).toList();
+        return MonthlyOrderStatisticsResponse.builder().year(year).month(month).monthName(first.getMonth().name())
+                .totalOrders(days.stream().mapToLong(DailyOrderStatisticsResponse::getTotalOrders).sum())
+                .completedOrders(days.stream().mapToLong(DailyOrderStatisticsResponse::getCompletedOrders).sum())
+                .cancelledOrders(days.stream().mapToLong(DailyOrderStatisticsResponse::getCancelledOrders).sum())
+                .totalRevenue(days.stream().map(DailyOrderStatisticsResponse::getTotalRevenue).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .averageOrderValue(orderRepository.getAverageOrderValueForPeriod(first.atStartOfDay(), first.plusMonths(1).atStartOfDay()))
+                .dailyStats(days).build();
     }
 
     @Override
     public YearlyOrderStatisticsResponse getYearlyStatistics(int year) {
-        return null;
+        List<MonthlyOrderStatisticsResponse> months = java.util.stream.IntStream.rangeClosed(1, 12)
+                .mapToObj(month -> getMonthlyStatistics(year, month)).toList();
+        return YearlyOrderStatisticsResponse.builder().year(year)
+                .totalOrders(months.stream().mapToLong(MonthlyOrderStatisticsResponse::getTotalOrders).sum())
+                .completedOrders(months.stream().mapToLong(MonthlyOrderStatisticsResponse::getCompletedOrders).sum())
+                .cancelledOrders(months.stream().mapToLong(MonthlyOrderStatisticsResponse::getCancelledOrders).sum())
+                .totalRevenue(months.stream().map(MonthlyOrderStatisticsResponse::getTotalRevenue).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .averageOrderValue(orderRepository.getAverageOrderValueForPeriod(LocalDate.of(year, 1, 1).atStartOfDay(), LocalDate.of(year + 1, 1, 1).atStartOfDay()))
+                .monthlyStats(months).build();
     }
 
     @Override
     public RevenueResponse getRevenueByDateRange(LocalDate startDate, LocalDate endDate) {
-        return null;
+        BigDecimal total = getRevenueForPeriod(startDate, endDate);
+        Map<String, BigDecimal> daily = new LinkedHashMap<>();
+        startDate.datesUntil(endDate.plusDays(1)).forEach(date -> daily.put(date.toString(),
+                orderRepository.getTotalRevenueForPeriod(date.atStartOfDay(), date.plusDays(1).atStartOfDay())));
+        return RevenueResponse.builder().totalRevenue(total).previousPeriodRevenue(BigDecimal.ZERO)
+                .growthPercentage(0).dailyRevenue(daily).revenueByPaymentMethod(Map.of()).build();
     }
 
     @Override
     public List<TopProductResponse> getTopSellingProducts(int limit, LocalDate startDate, LocalDate endDate) {
-        return List.of();
+        LocalDateTime start = startDate != null ? startDate.atStartOfDay() : LocalDateTime.MIN;
+        LocalDateTime end = endDate != null ? endDate.plusDays(1).atStartOfDay() : LocalDateTime.MAX;
+
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() == OrderStatus.DELIVERED)
+                .filter(order -> order.getCreatedAt() != null
+                        && !order.getCreatedAt().isBefore(start)
+                        && order.getCreatedAt().isBefore(end))
+                .flatMap(order -> order.getItems().stream())
+                .filter(item -> item.getProduct() != null)
+                .collect(Collectors.groupingBy(item -> item.getProduct().getId()))
+                .entrySet().stream()
+                .map(entry -> {
+                    List<OrderItem> items = entry.getValue();
+                    OrderItem first = items.get(0);
+                    return TopProductResponse.builder()
+                            .productId(entry.getKey())
+                            .productName(first.getProductName())
+                            .productImage(first.getProductImage())
+                            .totalQuantitySold(items.stream().mapToInt(OrderItem::getQuantity).sum())
+                            .totalRevenue(items.stream().map(OrderItem::getTotalPrice)
+                                    .filter(java.util.Objects::nonNull)
+                                    .reduce(BigDecimal.ZERO, BigDecimal::add))
+                            .orderCount((int) items.stream().map(item -> item.getOrder().getId()).distinct().count())
+                            .build();
+                })
+                .sorted(java.util.Comparator.comparingInt(TopProductResponse::getTotalQuantitySold).reversed())
+                .limit(Math.max(1, limit))
+                .toList();
     }
 
     @Override
     public OrderStatusDistributionResponse getOrderStatusDistribution() {
-        return null;
+        Map<String, Long> distribution = new LinkedHashMap<>();
+        for (OrderStatus status : OrderStatus.values()) distribution.put(status.name(), orderRepository.countByStatus(status));
+        long total = distribution.values().stream().mapToLong(Long::longValue).sum();
+        Map<String, Double> percentage = new LinkedHashMap<>();
+        distribution.forEach((key, value) -> percentage.put(key, total == 0 ? 0 : value * 100.0 / total));
+        return OrderStatusDistributionResponse.builder().distribution(distribution).percentage(percentage).total(total).build();
     }
 
     @Override
     public byte[] exportOrdersToExcel(LocalDate startDate, LocalDate endDate, String status) {
-        return new byte[0];
+        return exportOrdersCsv(startDate, endDate, status);
     }
 
     @Override
     public byte[] exportOrdersToPdf(LocalDate startDate, LocalDate endDate, String status) {
-        return new byte[0];
+        return exportOrdersCsv(startDate, endDate, status);
     }
 
     @Override
     public byte[] generateInvoice(UUID orderId) {
-        return new byte[0];
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        String invoice = "HOA DON " + order.getOrderNumber() + "\nTong tien: " + order.getTotalAmount() + "\nTrang thai: " + order.getStatus();
+        return invoice.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
     public boolean isOrderCancellable(UUID orderId) {
-        return false;
+        return orderRepository.findById(orderId).map(Order::isCancellable).orElse(false);
     }
 
     @Override
     public List<OrderStatusHistoryResponse> getOrderStatusHistory(UUID orderId) {
-        return List.of();
+        Order order = orderRepository.findById(orderId).orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        return order.getStatusHistory().stream().map(this::mapToHistoryResponse).toList();
     }
 
     @Override
     public long countOrdersByStatus(OrderStatus status) {
-        return 0;
+        return orderRepository.countByStatus(status);
     }
 
     @Override
     public BigDecimal getTotalRevenue() {
-        return null;
+        return orderRepository.getTotalRevenue();
     }
 
     @Override
     public BigDecimal getRevenueForPeriod(LocalDate startDate, LocalDate endDate) {
-        return null;
+        return orderRepository.getTotalRevenueForPeriod(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
     }
 
     @Override
     public BigDecimal getAverageOrderValue() {
-        return null;
+        return orderRepository.getAverageOrderValue();
     }
 
     @Override
     public long getOrderCountByDateRange(LocalDate startDate, LocalDate endDate) {
-        return 0;
+        return orderRepository.countByCreatedAtBetween(startDate.atStartOfDay(), endDate.plusDays(1).atStartOfDay());
+    }
+
+    private byte[] exportOrdersCsv(LocalDate startDate, LocalDate endDate, String status) {
+        StringBuilder csv = new StringBuilder("orderNumber,status,totalAmount,createdAt\n");
+        orderRepository.findAll(Sort.by("createdAt").descending()).stream()
+                .filter(order -> startDate == null || !order.getCreatedAt().toLocalDate().isBefore(startDate))
+                .filter(order -> endDate == null || !order.getCreatedAt().toLocalDate().isAfter(endDate))
+                .filter(order -> status == null || status.isBlank() || order.getStatus().name().equals(status))
+                .forEach(order -> csv.append(order.getOrderNumber()).append(',').append(order.getStatus()).append(',')
+                        .append(order.getTotalAmount()).append(',').append(order.getCreatedAt()).append('\n'));
+        return csv.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -435,9 +551,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<OrderResponse> getUserOrders(UUID userId, int page, int size) {
+    public PageResponse<OrderResponse> getUserOrders(UUID userId, int page, int size, String query) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Order> orders = orderRepository.findByUserId(userId, pageable);
+        String searchQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        Page<Order> orders = orderRepository.searchOrdersByUser(userId, searchQuery, pageable);
         return PageResponse.of(orders.map(this::mapToResponse));
     }
 
@@ -451,14 +568,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public PageResponse<OrderResponse> getAllOrders(int page, int size, String status) {
+    public PageResponse<OrderResponse> getAllOrders(int page, int size, String status, String query) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Order> orders;
-        if (status != null && !status.isEmpty()) {
-            orders = orderRepository.findByStatus(OrderStatus.valueOf(status), pageable);
-        } else {
-            orders = orderRepository.findAll(pageable);
-        }
+        OrderStatus orderStatus = (status != null && !status.isEmpty()) ? OrderStatus.valueOf(status) : null;
+        String searchQuery = (query != null && !query.trim().isEmpty()) ? query.trim() : null;
+        Page<Order> orders = orderRepository.searchOrdersAdmin(orderStatus, searchQuery, pageable);
         return PageResponse.of(orders.map(this::mapToResponse));
     }
 
@@ -590,6 +704,7 @@ public class OrderServiceImpl implements OrderService {
     private OrderItemResponse mapToOrderItemResponse(OrderItem item) {
         return OrderItemResponse.builder()
                 .id(item.getId())
+                .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                 .productName(item.getProductName())
                 .variantName(item.getVariantName())
                 .productImage(item.getProductImage())

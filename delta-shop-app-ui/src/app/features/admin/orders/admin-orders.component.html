@@ -7,9 +7,13 @@
 
 <div class="admin-card filters-card">
   <div class="filters-row">
-    <div class="summary-box">
-      <strong>{{ totalElements() }}</strong>
-      <span>đơn hàng</span>
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input
+        [(ngModel)]="searchQuery"
+        type="text"
+        (keyup.enter)="onFilter()"
+        placeholder="Tìm kiếm mã đơn hàng...">
     </div>
 
     <div class="filter-group">
@@ -22,6 +26,8 @@
         <option value="DELIVERED">Đã giao</option>
         <option value="CANCELLED">Đã hủy</option>
       </select>
+
+      <button class="btn btn-outline" (click)="onFilter()">Lọc</button>
     </div>
   </div>
 </div>

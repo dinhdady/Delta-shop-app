@@ -732,5 +732,5 @@ INSERT INTO shipping_zones (name, provinces) VALUES
 -- Admin user (password: Admin@123)
 INSERT INTO users (email, password_hash, first_name, last_name, role, status, email_verified)
 VALUES ('admin@delta-sports.vn',
-        '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj5cz2uXrFSm',
+        '$2a$12$PCsWgDj1uQ8e.UlfC5kek.Yf1x/untctFFvjhxlCa58e17Ay0N/q6',
         'Delta', 'Admin', 'SUPER_ADMIN', 'ACTIVE', TRUE);

@@ -118,7 +118,6 @@ public class VariantAttributeValueServiceImpl implements VariantAttributeValueSe
 
     @Override
     public List<UUID> findVariantsByAttribute(String attributeCode, String value) {
-        // This would require a custom query in repository
-        return List.of();
+        return variantAttributeValueRepository.findVariantIdsByAttributeCodeAndValue(attributeCode, value);
     }
 }

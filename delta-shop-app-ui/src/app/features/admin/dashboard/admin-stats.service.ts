@@ -48,4 +48,12 @@ export class AdminStatsService {
   getOrderStatusChart(): Observable<any> {
     return this.http.get(`${this.apiUrl}/charts/order-status`);
   }
+
+  getRevenueByCategoryChart(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/charts/revenue-by-category`);
+  }
+
+  getTopProducts(limit: number = 5, period: string = '30'): Observable<TopProductsResponse> {
+    return this.http.get<TopProductsResponse>(`${this.apiUrl}/top-products?limit=${limit}&period=${period}`);
+  }
 }

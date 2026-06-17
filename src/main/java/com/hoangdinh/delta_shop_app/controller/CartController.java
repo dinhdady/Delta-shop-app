@@ -74,4 +74,42 @@ public class CartController {
         String sessionId = request.getSession().getId();
         return ResponseEntity.ok(cartService.mergeGuestCart(userId, sessionId));
     }
+
+    @GetMapping("/guest")
+    @Operation(summary = "Get guest cart")
+    public ResponseEntity<CartResponse> getGuestCart(HttpServletRequest request) {
+        return ResponseEntity.ok(cartService.getGuestCart(request.getSession(true).getId()));
+    }
+
+    @PostMapping("/guest/items")
+    @Operation(summary = "Add item to guest cart")
+    public ResponseEntity<CartResponse> addToGuestCart(
+            @Valid @RequestBody AddToCartRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(cartService.addToGuestCart(httpRequest.getSession(true).getId(), request));
+    }
+
+    @PutMapping("/guest/items")
+    @Operation(summary = "Update guest cart item")
+    public ResponseEntity<CartResponse> updateGuestCartItem(
+            @Valid @RequestBody UpdateCartItemRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(cartService.updateGuestCartItem(httpRequest.getSession(true).getId(), request));
+    }
+
+    @DeleteMapping("/guest/items/{cartItemId}")
+    @Operation(summary = "Remove guest cart item")
+    public ResponseEntity<CartResponse> removeGuestCartItem(
+            @PathVariable UUID cartItemId,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(cartService.removeGuestCartItem(request.getSession(true).getId(), cartItemId));
+    }
+
+    @DeleteMapping("/guest/clear")
+    @Operation(summary = "Clear guest cart")
+    public ResponseEntity<Void> clearGuestCart(HttpServletRequest request) {
+        cartService.clearGuestCart(request.getSession(true).getId());
+        return ResponseEntity.noContent().build();
+    }
 }

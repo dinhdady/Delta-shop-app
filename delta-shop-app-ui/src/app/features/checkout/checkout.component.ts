@@ -6,7 +6,9 @@ import { CartService } from '../../core/services/cart.service';
 import { OrderService } from '../../core/services/order.service';
 import { PaymentService } from '../../core/services/payment.service';
 import { UserService, UserAddress } from '../../core/services/user.service';
+import { PromotionService, PromotionValidation } from '../../core/services/promotion.service';
 import { ToastrService } from 'ngx-toastr';
+import { CartItem } from '../../core/services/cart.service';
 
 @Component({
   selector: 'app-checkout',
@@ -156,7 +158,7 @@ import { ToastrService } from 'ngx-toastr';
             <h2>ĐƠN HÀNG CỦA BẠN</h2>
 
             <div class="order-items">
-              @for (item of cartItems(); track item.id) {
+              @for (item of checkoutItems(); track item.id) {
                 <div class="order-item">
                   <div class="item-info">
                     <span class="item-name">{{ item.productName }}</span>
@@ -172,8 +174,34 @@ import { ToastrService } from 'ngx-toastr';
             <div class="summary-totals">
               <div class="summary-row">
                 <span>Tạm tính</span>
-                <span>{{ cartTotal() | currency:'VND':'symbol':'1.0-0' }}</span>
+                <span>{{ checkoutTotal() | currency:'VND':'symbol':'1.0-0' }}</span>
               </div>
+              <div class="voucher-box">
+                <label>Mã voucher</label>
+                <div class="voucher-input">
+                  <input
+                    type="text"
+                    formControlName="promotionCode"
+                    placeholder="Nhập mã giảm giá"
+                    [readonly]="!!appliedPromotion">
+                  @if (appliedPromotion) {
+                    <button type="button" class="btn-voucher remove" (click)="removePromotion()">Gỡ</button>
+                  } @else {
+                    <button type="button" class="btn-voucher" (click)="applyPromotion()" [disabled]="isApplyingPromotion">
+                      {{ isApplyingPromotion ? 'Đang kiểm tra...' : 'Áp dụng' }}
+                    </button>
+                  }
+                </div>
+                @if (appliedPromotion) {
+                  <p class="voucher-success">{{ appliedPromotion.name || appliedPromotion.code }}: -{{ promotionDiscount() | currency:'VND':'symbol':'1.0-0' }}</p>
+                }
+              </div>
+              @if (promotionDiscount() > 0) {
+                <div class="summary-row discount">
+                  <span>Giảm giá</span>
+                  <span>-{{ promotionDiscount() | currency:'VND':'symbol':'1.0-0' }}</span>
+                </div>
+              }
               <div class="summary-row">
                 <span>Phí vận chuyển</span>
                 <span>Miễn phí</span>
@@ -181,7 +209,7 @@ import { ToastrService } from 'ngx-toastr';
               <hr>
               <div class="summary-row total">
                 <span>Tổng cộng</span>
-                <span class="text-primary">{{ cartTotal() | currency:'VND':'symbol':'1.0-0' }}</span>
+                <span class="text-primary">{{ finalTotal() | currency:'VND':'symbol':'1.0-0' }}</span>
               </div>
             </div>
 
@@ -332,6 +360,11 @@ import { ToastrService } from 'ngx-toastr';
           font-weight: 700;
           margin-top: 1rem;
         }
+
+        &.discount {
+          color: #0f7b34;
+          font-weight: 600;
+        }
       }
 
       hr {
@@ -344,6 +377,58 @@ import { ToastrService } from 'ngx-toastr';
     .submit-btn {
       margin-top: 2rem;
       height: 3.5rem;
+    }
+
+    .voucher-box {
+      margin: 1rem 0;
+      padding: 1rem;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius);
+
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+      }
+    }
+
+    .voucher-input {
+      display: flex;
+      gap: 0.5rem;
+
+      input {
+        flex: 1;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        padding: 0.75rem;
+        text-transform: uppercase;
+      }
+    }
+
+    .btn-voucher {
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--color-dark);
+      color: white;
+      padding: 0 1rem;
+      font-weight: 700;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      &.remove {
+        background: #b42318;
+      }
+    }
+
+    .voucher-success {
+      margin: 0.75rem 0 0;
+      color: #0f7b34;
+      font-size: 0.875rem;
+      font-weight: 600;
     }
 
     /* Address Selection Styles */
@@ -430,12 +515,16 @@ export class CheckoutComponent implements OnInit {
   private orderService = inject(OrderService);
   private paymentService = inject(PaymentService);
   private userService = inject(UserService);
+  private promotionService = inject(PromotionService);
   private router = inject(Router);
   private toastr = inject(ToastrService);
 
   cartItems = this.cartService.cartItems;
   cartTotal = this.cartService.cartTotal;
+  buyNowItem: CartItem | null = null;
   isSubmitting = false;
+  isApplyingPromotion = false;
+  appliedPromotion: PromotionValidation | null = null;
 
   // Address selection properties
   addresses: UserAddress[] = [];
@@ -453,15 +542,81 @@ export class CheckoutComponent implements OnInit {
     ward: ['', Validators.required],
     address: ['', Validators.required],
     note: [''],
+    promotionCode: [''],
     paymentMethod: ['COD', Validators.required]
   });
 
   ngOnInit() {
+    this.loadBuyNowItem();
     this.loadAddresses();
 
     // Không set required cho email ở đây
     this.checkoutForm.get('email')?.setValidators(Validators.email);
     this.checkoutForm.get('email')?.updateValueAndValidity();
+  }
+
+  loadBuyNowItem() {
+    const savedItem = sessionStorage.getItem('buyNowItem');
+    if (!savedItem) {
+      this.buyNowItem = null;
+      return;
+    }
+
+    try {
+      this.buyNowItem = JSON.parse(savedItem);
+    } catch {
+      sessionStorage.removeItem('buyNowItem');
+      this.buyNowItem = null;
+    }
+  }
+
+  checkoutItems(): CartItem[] {
+    return this.buyNowItem ? [this.buyNowItem] : this.cartItems();
+  }
+
+  checkoutTotal(): number {
+    return this.buyNowItem ? this.buyNowItem.subtotal : this.cartTotal();
+  }
+
+  promotionDiscount(): number {
+    return Math.min(this.appliedPromotion?.discountAmount || 0, this.checkoutTotal());
+  }
+
+  finalTotal(): number {
+    return Math.max(0, this.checkoutTotal() - this.promotionDiscount());
+  }
+
+  applyPromotion(): void {
+    const code = String(this.checkoutForm.get('promotionCode')?.value || '').trim().toUpperCase();
+    if (!code) {
+      this.toastr.warning('Vui lòng nhập mã voucher');
+      return;
+    }
+
+    this.isApplyingPromotion = true;
+    this.promotionService.validate(code, this.checkoutTotal()).subscribe({
+      next: result => {
+        this.isApplyingPromotion = false;
+        if (!result.valid) {
+          this.appliedPromotion = null;
+          this.toastr.error(result.message || 'Mã voucher không hợp lệ');
+          return;
+        }
+        this.appliedPromotion = result;
+        this.checkoutForm.patchValue({ promotionCode: result.code || code });
+        this.toastr.success(result.message || 'Áp dụng voucher thành công');
+      },
+      error: err => {
+        this.isApplyingPromotion = false;
+        this.appliedPromotion = null;
+        this.toastr.error(err.error?.message || 'Không thể kiểm tra mã voucher');
+      }
+    });
+  }
+
+  removePromotion(): void {
+    this.appliedPromotion = null;
+    this.checkoutForm.patchValue({ promotionCode: '' });
   }
 
   loadAddresses() {
@@ -560,14 +715,22 @@ export class CheckoutComponent implements OnInit {
   }
 
   onSubmit() {
-  if (this.checkoutForm.invalid || this.cartItems().length === 0) {
+  const items = this.checkoutItems();
+  if (this.checkoutForm.invalid || items.length === 0) {
     this.checkoutForm.markAllAsTouched();
-    this.toastr.warning('Vui lòng điền đầy đủ thông tin');
+    this.toastr.warning(items.length === 0 ? 'Không có sản phẩm để thanh toán' : 'Vui lòng điền đầy đủ thông tin');
     return;
   }
 
   this.isSubmitting = true;
   const formValue = this.checkoutForm.getRawValue();
+  const promotionCode = String(formValue.promotionCode || '').trim();
+
+  if (promotionCode && !this.appliedPromotion) {
+    this.toastr.warning('Vui lòng bấm áp dụng voucher trước khi đặt hàng');
+    this.isSubmitting = false;
+    return;
+  }
 
   // Validate shipping address
   if (!this.showAddressForm && !this.selectedAddressId) {
@@ -577,7 +740,7 @@ export class CheckoutComponent implements OnInit {
   }
 
   const orderData = {
-    items: this.cartItems().map(item => ({
+    items: items.map(item => ({
       variantId: item.variantId,
       quantity: item.quantity,
       unitPrice: item.unitPrice,  // ✅ THÊM - gửi giá hiện tại
@@ -591,7 +754,8 @@ export class CheckoutComponent implements OnInit {
     shippingWard: formValue.ward,
     shippingAddress: formValue.address,
     paymentMethod: formValue.paymentMethod,
-    notes: formValue.note
+    notes: formValue.note,
+    promotionCode: this.appliedPromotion?.code
   };
 
   this.orderService.createOrder(orderData).subscribe({
@@ -603,8 +767,7 @@ export class CheckoutComponent implements OnInit {
           paymentMethod: 'VNPAY'
         }).subscribe({
           next: (payment) => {
-            // Clear cart trước khi redirect
-            this.cartService.clearCart();
+            this.clearCheckoutSource();
 
             // Lưu order info vào sessionStorage để phòng trường hợp callback fail
             sessionStorage.setItem('pendingOrder', JSON.stringify({
@@ -634,7 +797,7 @@ export class CheckoutComponent implements OnInit {
       }
 
       // COD flow
-      this.cartService.clearCart();
+      this.clearCheckoutSource();
       this.toastr.success('Đặt hàng thành công!');
       this.router.navigate(['/order-success', order.id]);
     },
@@ -645,4 +808,14 @@ export class CheckoutComponent implements OnInit {
     }
   });
 }
+
+  private clearCheckoutSource() {
+    if (this.buyNowItem) {
+      sessionStorage.removeItem('buyNowItem');
+      this.buyNowItem = null;
+      return;
+    }
+
+    this.cartService.clearCart();
+  }
 }

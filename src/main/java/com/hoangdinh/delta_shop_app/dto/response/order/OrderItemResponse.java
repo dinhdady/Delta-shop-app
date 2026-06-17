@@ -11,6 +11,7 @@ import java.util.UUID;
 @Builder
 public class OrderItemResponse {
     private UUID id;
+    private UUID productId;
     private String productName;
     private String variantName;
     private String productImage;
@@ -25,6 +26,7 @@ public class OrderItemResponse {
 
         return OrderItemResponse.builder()
                 .id(item.getId())
+                .productId(item.getProduct() != null ? item.getProduct().getId() : null)
                 .productName(item.getProductName())
                 .variantName(item.getVariantName())
                 .productImage(item.getProductImage())

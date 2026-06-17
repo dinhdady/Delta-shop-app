@@ -28,6 +28,15 @@ public class ProductSpecification {
                 predicates.add(cb.equal(root.get("status"), filter.getStatus()));
             }
 
+            // Keyword
+            if (StringUtils.hasText(filter.getKeyword())) {
+                String keyword = "%" + filter.getKeyword().trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), keyword),
+                        cb.like(cb.lower(root.get("sku")), keyword)
+                ));
+            }
+
             // Category
             if (filter.getCategoryId() != null) {
                 Join<Object, Object> category = root.join("category", JoinType.INNER);

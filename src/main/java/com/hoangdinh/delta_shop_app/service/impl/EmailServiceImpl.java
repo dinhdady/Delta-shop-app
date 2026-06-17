@@ -8,6 +8,7 @@ import com.hoangdinh.delta_shop_app.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -34,22 +35,18 @@ public class EmailServiceImpl implements EmailService {
     private String frontendUrl;
 
     @Override
-    public void sendEmailVerification(String email, String name, String token) {
+    public void sendEmailVerification(String email, String name, String otp) {
         String subject = "Xác thực email - Delta Sports";
-        String verificationUrl = frontendUrl + "/verify-email?token=" + token;
-
-        String htmlContent = buildVerificationEmail(name, verificationUrl);
+        String htmlContent = buildVerificationEmail(name, otp);
         sendHtmlEmail(email, subject, htmlContent);
 
         log.info("Verification email sent to: {}", email);
     }
 
     @Override
-    public void sendPasswordReset(String email, String name, String token) {
+    public void sendPasswordReset(String email, String name, String otp) {
         String subject = "Đặt lại mật khẩu - Delta Sports";
-        String resetUrl = frontendUrl + "/reset-password?token=" + token;
-
-        String htmlContent = buildPasswordResetEmail(name, resetUrl);
+        String htmlContent = buildPasswordResetEmail(name, otp);
         sendHtmlEmail(email, subject, htmlContent);
 
         log.info("Password reset email sent to: {}", email);
@@ -122,7 +119,7 @@ public class EmailServiceImpl implements EmailService {
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: white; padding: 30px; text-align: center; }
+                .header { background: linear-gradient(135deg, #1a1a1a 0%%, #333 100%%); color: white; padding: 30px; text-align: center; }
                 .header h1 { margin: 0; font-size: 28px; }
                 .header span { color: #ff4400; }
                 .content { padding: 30px; background: #f9f9f9; }
@@ -155,19 +152,20 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
+            helper.setFrom(fromEmail, "Delta Sports");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
             log.info("Email sent to: {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+        } catch (MessagingException | UnsupportedEncodingException | MailException e) {
+            log.error("Failed to send email to {}", to, e);
+            throw new RuntimeException("Failed to send email", e);
         }
     }
 
-    private String buildPasswordResetEmail(String name, String resetUrl) {
+    private String buildPasswordResetEmail(String name, String otp) {
         return """
             <!DOCTYPE html>
             <html>
@@ -178,7 +176,18 @@ public class EmailServiceImpl implements EmailService {
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
                     .header { background-color: #0D8F81; color: white; padding: 20px; text-align: center; }
                     .content { padding: 20px; background-color: #f9f9f9; }
-                    .button { display: inline-block; padding: 12px 24px; background-color: #0D8F81; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+                    .otp-box { 
+                        display: inline-block; 
+                        padding: 15px 30px; 
+                        background-color: #f0f0f0; 
+                        border: 2px dashed #0D8F81;
+                        font-size: 24px;
+                        font-weight: bold;
+                        letter-spacing: 5px;
+                        border-radius: 8px; 
+                        margin: 20px 0; 
+                        color: #0D8F81;
+                    }
                     .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
                 </style>
             </head>
@@ -190,14 +199,12 @@ public class EmailServiceImpl implements EmailService {
                     <div class="content">
                         <h2>Xin chào %s,</h2>
                         <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.</p>
-                        <p>Nhấp vào nút bên dưới để đặt lại mật khẩu:</p>
+                        <p>Vui lòng sử dụng mã OTP gồm 6 chữ số dưới đây để đặt lại mật khẩu:</p>
                         <div style="text-align: center;">
-                            <a href="%s" class="button">Đặt lại mật khẩu</a>
+                            <div class="otp-box">%s</div>
                         </div>
-                        <p>Hoặc copy đường dẫn sau vào trình duyệt:</p>
-                        <p style="word-break: break-all;">%s</p>
-                        <p>Link này sẽ hết hạn sau 2 giờ.</p>
-                        <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+                        <p>Mã OTP này sẽ hết hạn sau 15 phút.</p>
+                        <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này và đảm bảo tài khoản của bạn được an toàn.</p>
                     </div>
                     <div class="footer">
                         <p>© 2024 Delta Sports. All rights reserved.</p>
@@ -205,7 +212,7 @@ public class EmailServiceImpl implements EmailService {
                 </div>
             </body>
             </html>
-            """.formatted(name, resetUrl, resetUrl);
+            """.formatted(name, otp);
     }
 
     private String buildOrderConfirmationEmail(Order order) {
@@ -465,7 +472,7 @@ public class EmailServiceImpl implements EmailService {
                 <style>
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: white; padding: 30px; text-align: center; }
+                    .header { background: linear-gradient(135deg, #1a1a1a 0%%, #333 100%%); color: white; padding: 30px; text-align: center; }
                     .header h1 { margin: 0; font-size: 28px; }
                     .header span { color: #ff4400; }
                     .content { padding: 30px; background: #f9f9f9; }
@@ -502,7 +509,7 @@ public class EmailServiceImpl implements EmailService {
 
         sendEmail(to, subject, htmlContent);
     }
-    private String buildVerificationEmail(String name, String verificationUrl) {
+    private String buildVerificationEmail(String name, String otp) {
         return """
         <!DOCTYPE html>
         <html>
@@ -511,12 +518,22 @@ public class EmailServiceImpl implements EmailService {
             <style>
                 body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .header { background: linear-gradient(135deg, #C41E3A 0%%, #8B0000 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
                 .header h1 { margin: 0; font-size: 28px; letter-spacing: 2px; }
                 .header span { font-weight: normal; opacity: 0.9; }
                 .content { padding: 30px; background: #ffffff; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px; }
-                .button { display: inline-block; padding: 14px 32px; background: #C41E3A; color: white; text-decoration: none; border-radius: 30px; margin: 20px 0; font-weight: bold; transition: all 0.3s ease; }
-                .button:hover { background: #8B0000; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(196,30,58,0.3); }
+                .otp-box { 
+                    display: inline-block; 
+                    padding: 15px 30px; 
+                    background-color: #fff0f2; 
+                    border: 2px dashed #C41E3A;
+                    font-size: 28px;
+                    font-weight: bold;
+                    letter-spacing: 6px;
+                    border-radius: 8px; 
+                    margin: 20px 0; 
+                    color: #C41E3A;
+                }
                 .footer { text-align: center; padding: 20px; font-size: 12px; color: #999; border-top: 1px solid #e0e0e0; margin-top: 20px; }
                 .warning { background: #fff3cd; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107; margin: 20px 0; font-size: 13px; }
                 .logo { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
@@ -531,23 +548,20 @@ public class EmailServiceImpl implements EmailService {
                 <div class="content">
                     <h2>Xin chào <strong>%s</strong>!</h2>
                     <p>Cảm ơn bạn đã đăng ký tài khoản tại <strong>Delta Sports</strong>.</p>
-                    <p>Để hoàn tất quá trình đăng ký và kích hoạt tài khoản, vui lòng nhấp vào nút bên dưới:</p>
+                    <p>Để hoàn tất quá trình đăng ký và kích hoạt tài khoản, vui lòng sử dụng mã OTP gồm 6 chữ số dưới đây:</p>
                     
                     <div style="text-align: center;">
-                        <a href="%s" class="button">✓ XÁC THỰC TÀI KHOẢN</a>
+                        <div class="otp-box">%s</div>
                     </div>
                     
                     <div class="warning">
                         <strong>⚠️ Lưu ý:</strong>
                         <ul style="margin: 10px 0 0 20px; padding: 0;">
-                            <li>Link xác thực có hiệu lực trong vòng <strong>24 giờ</strong></li>
+                            <li>Mã xác thực có hiệu lực trong vòng <strong>24 giờ</strong></li>
                             <li>Sau khi xác thực, bạn có thể đăng nhập và mua sắm tại Delta Sports</li>
                             <li>Nếu không xác thực, tài khoản sẽ không thể đăng nhập</li>
                         </ul>
                     </div>
-                    
-                    <p>Nếu nút không hoạt động, bạn có thể copy đường dẫn sau vào trình duyệt:</p>
-                    <p style="word-break: break-all; background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 12px;">%s</p>
                     
                     <p>Nếu bạn không đăng ký tài khoản, vui lòng bỏ qua email này.</p>
                     
@@ -561,7 +575,7 @@ public class EmailServiceImpl implements EmailService {
             </div>
         </body>
         </html>
-        """.formatted(name, verificationUrl, verificationUrl);
+        """.formatted(name, otp);
     }
     @Override
     public void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
@@ -579,7 +593,7 @@ public class EmailServiceImpl implements EmailService {
                 <style>
                     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #1a1a1a 0%, #333 100%); color: white; padding: 30px; text-align: center; }
+                    .header { background: linear-gradient(135deg, #1a1a1a 0%%, #333 100%%); color: white; padding: 30px; text-align: center; }
                     .header h1 { margin: 0; font-size: 28px; }
                     .header span { color: #ff4400; }
                     .content { padding: 30px; background: #f9f9f9; }

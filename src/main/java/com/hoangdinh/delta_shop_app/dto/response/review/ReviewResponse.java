@@ -2,6 +2,7 @@ package com.hoangdinh.delta_shop_app.dto.response.review;
 
 import com.hoangdinh.delta_shop_app.entity.Review;
 import com.hoangdinh.delta_shop_app.entity.ReviewImage;
+import com.hoangdinh.delta_shop_app.enums.ReviewStatus;
 import lombok.Builder;
 import lombok.Data;
 
@@ -20,11 +21,13 @@ public class ReviewResponse {
     private String userName;
     private String userAvatar;
     private Integer rating;
+    private ReviewStatus status;
     private String title;
     private String body;
     private List<String> images;
     private boolean verifiedPurchase;
     private Integer helpfulCount;
+    private boolean votedHelpful;
     private String adminReply;
     private LocalDateTime adminReplyAt;
     private LocalDateTime createdAt;
@@ -40,6 +43,7 @@ public class ReviewResponse {
                 .userName(review.getUser() != null ? review.getUser().getFullName() : null)
                 .userAvatar(review.getUser() != null ? review.getUser().getAvatarUrl() : null)
                 .rating(review.getRating())
+                .status(review.getStatus())
                 .title(review.getTitle())
                 .body(review.getBody())
                 .images(review.getImages() != null ?

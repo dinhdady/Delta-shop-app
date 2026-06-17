@@ -157,20 +157,79 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public CartSummaryResponse getCartSummary(UUID userId) {
-        return null;
+        Cart cart = getOrCreateCart(userId);
+        BigDecimal subtotal = calculateSubtotal(cart);
+        return CartSummaryResponse.builder()
+                .totalItems(cart.getItems().stream().mapToInt(CartItem::getQuantity).sum())
+                .uniqueItems(cart.getItems().size())
+                .subtotal(subtotal)
+                .shippingFee(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .total(subtotal)
+                .loyaltyPointsToUse(0)
+                .loyaltyDiscount(BigDecimal.ZERO)
+                .build();
     }
 
     @Override
     public CartResponse getGuestCart(String sessionId) {
-        return null;
+        return mapToResponse(getOrCreateGuestCart(sessionId));
     }
 
     @Override
+    @Transactional
     public CartResponse addToGuestCart(String sessionId, AddToCartRequest request) {
-        return null;
+        ProductVariant variant = variantRepository.findById(request.getVariantId())
+                .orElseThrow(() -> new ResourceNotFoundException("Variant", "id", request.getVariantId()));
+        Cart cart = getOrCreateGuestCart(sessionId);
+        addOrMergeItem(cart, variant, request.getQuantity(), request.getSelectedSize(),
+                request.getSelectedSizeLabel(), request.getSelectedSizeMeasurement());
+        cart.setUpdatedAt(LocalDateTime.now());
+        return mapToResponse(cartRepository.save(cart));
     }
 
     @Override
+    @Transactional
+    public CartResponse updateGuestCartItem(String sessionId, UpdateCartItemRequest request) {
+        Cart cart = getOrCreateGuestCart(sessionId);
+        CartItem item = cart.getItems().stream()
+                .filter(cartItem -> cartItem.getId().equals(request.getCartItemId()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "id", request.getCartItemId()));
+        if (request.getQuantity() <= 0) {
+            cart.removeItem(item);
+        } else {
+            validateStock(item.getVariant().getId(), request.getQuantity());
+            item.setQuantity(request.getQuantity());
+        }
+        cart.setUpdatedAt(LocalDateTime.now());
+        return mapToResponse(cartRepository.save(cart));
+    }
+
+    @Override
+    @Transactional
+    public CartResponse removeGuestCartItem(String sessionId, UUID cartItemId) {
+        Cart cart = getOrCreateGuestCart(sessionId);
+        CartItem item = cart.getItems().stream()
+                .filter(cartItem -> cartItem.getId().equals(cartItemId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "id", cartItemId));
+        cart.removeItem(item);
+        cart.setUpdatedAt(LocalDateTime.now());
+        return mapToResponse(cartRepository.save(cart));
+    }
+
+    @Override
+    @Transactional
+    public void clearGuestCart(String sessionId) {
+        Cart cart = getOrCreateGuestCart(sessionId);
+        cart.clearItems();
+        cart.setUpdatedAt(LocalDateTime.now());
+        cartRepository.save(cart);
+    }
+
+    @Override
+    @Transactional
     public CartResponse mergeGuestCart(UUID userId, String sessionId) {
         if (sessionId == null || sessionId.isEmpty()) {
             return getCart(userId);
@@ -188,17 +247,22 @@ public class CartServiceImpl implements CartService {
         for (CartItem guestItem : guestCart.getItems()) {
             Optional<CartItem> existingItem = userCart.getItems().stream()
                     .filter(item -> item.getVariant().getId().equals(guestItem.getVariant().getId()))
+                    .filter(item -> java.util.Objects.equals(item.getSelectedSize(), guestItem.getSelectedSize()))
                     .findFirst();
 
             if (existingItem.isPresent()) {
-                existingItem.get().setQuantity(existingItem.get().getQuantity() + guestItem.getQuantity());
+                int mergedQuantity = existingItem.get().getQuantity() + guestItem.getQuantity();
+                existingItem.get().setQuantity(Math.min(mergedQuantity, guestItem.getVariant().getAvailableQuantity()));
                 existingItem.get().setUpdatedAt(LocalDateTime.now());
-            } else {
+            } else if (guestItem.getVariant().getAvailableQuantity() > 0) {
                 CartItem newItem = CartItem.builder()
                         .cart(userCart)
                         .variant(guestItem.getVariant())
-                        .quantity(guestItem.getQuantity())
+                        .quantity(Math.min(guestItem.getQuantity(), guestItem.getVariant().getAvailableQuantity()))
                         .unitPrice(guestItem.getUnitPrice())
+                        .selectedSize(guestItem.getSelectedSize())
+                        .selectedSizeLabel(guestItem.getSelectedSizeLabel())
+                        .selectedSizeMeasurement(guestItem.getSelectedSizeMeasurement())
                         .build();
                 userCart.getItems().add(newItem);
             }
@@ -265,6 +329,48 @@ public class CartServiceImpl implements CartService {
                 });
     }
 
+    private Cart getOrCreateGuestCart(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new BusinessException("Không thể xác định phiên giỏ hàng khách");
+        }
+        return cartRepository.findBySessionId(sessionId)
+                .orElseGet(() -> cartRepository.save(Cart.builder()
+                        .sessionId(sessionId)
+                        .expiresAt(LocalDateTime.now().plusDays(30))
+                        .build()));
+    }
+
+    private void addOrMergeItem(Cart cart, ProductVariant variant, int quantity, String selectedSize,
+                                String selectedSizeLabel, String selectedSizeMeasurement) {
+        Optional<CartItem> existing = cart.getItems().stream()
+                .filter(item -> item.getVariant().getId().equals(variant.getId()))
+                .filter(item -> java.util.Objects.equals(item.getSelectedSize(), selectedSize))
+                .findFirst();
+        int requestedQuantity = quantity + existing.map(CartItem::getQuantity).orElse(0);
+        if (variant.getAvailableQuantity() < requestedQuantity) {
+            throw new BusinessException("Sản phẩm không đủ số lượng. Còn lại: " + variant.getAvailableQuantity());
+        }
+        if (existing.isPresent()) {
+            existing.get().setQuantity(requestedQuantity);
+            existing.get().setUpdatedAt(LocalDateTime.now());
+            return;
+        }
+        cart.addItem(CartItem.builder()
+                .variant(variant)
+                .quantity(quantity)
+                .unitPrice(variant.getFinalPrice())
+                .selectedSize(selectedSize)
+                .selectedSizeLabel(selectedSizeLabel)
+                .selectedSizeMeasurement(selectedSizeMeasurement)
+                .build());
+    }
+
+    private BigDecimal calculateSubtotal(Cart cart) {
+        return cart.getItems().stream()
+                .map(CartItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private CartResponse mapToResponse(Cart cart) {
         BigDecimal subtotal = cart.getItems().stream()
                 .map(item -> item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
@@ -306,6 +412,9 @@ public class CartServiceImpl implements CartService {
                                     .unitPrice(item.getUnitPrice())
                                     .subtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                                     .availableStock(item.getVariant().getAvailableQuantity())
+                                    .selectedSize(item.getSelectedSize())
+                                    .selectedSizeLabel(item.getSelectedSizeLabel())
+                                    .selectedSizeMeasurement(item.getSelectedSizeMeasurement())
                                     .build();
                         })
                         .collect(Collectors.toList()))

@@ -45,4 +45,8 @@ export class AdminProductService {
   updateFeatured(id: string, featured: boolean): Observable<any> {
     return this.http.patch(`${this.apiUrl}/${id}/featured?featured=${featured}`, {});
   }
+
+  adjustStock(id: string, stockQuantity: number, note?: string): Observable<any> {
+    return this.http.patch(`${this.apiUrl}/${id}/stock`, { stockQuantity, note });
+  }
 }

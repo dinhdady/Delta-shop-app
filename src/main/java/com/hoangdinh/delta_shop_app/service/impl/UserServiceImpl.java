@@ -159,14 +159,8 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
-        // Delete old avatar if exists
-        if (user.getAvatarUrl() != null && user.getAvatarUrl().contains("cloudinary")) {
-            String publicId = extractPublicId(user.getAvatarUrl());
-            if (publicId != null) {
-                cloudinaryService.deleteFile(publicId);
-            }
-        }
-
+        // Cloudinary overwrites the fixed avatar public ID. Deleting the old URL here
+        // would delete the newly uploaded asset as well.
         user.setAvatarUrl(avatarUrl);
         userRepository.save(user);
         log.info("Avatar uploaded for user: {}", userId);
@@ -333,13 +327,13 @@ public class UserServiceImpl implements UserService {
         if (keyword != null && !keyword.isEmpty()) {
             users = userRepository.searchUsers(keyword, pageable);
         } else if (role != null && status != null) {
-            users = userRepository.findByRoleAndStatus(UserRole.valueOf(role), UserStatus.valueOf(status), pageable);
+            users = userRepository.findByRoleAndStatusAndDeletedAtIsNull(UserRole.valueOf(role), UserStatus.valueOf(status), pageable);
         } else if (role != null) {
-            users = userRepository.findByRole(UserRole.valueOf(role), pageable);
+            users = userRepository.findByRoleAndDeletedAtIsNull(UserRole.valueOf(role), pageable);
         } else if (status != null) {
-            users = userRepository.findByStatus(UserStatus.valueOf(status), pageable);
+            users = userRepository.findByStatusAndDeletedAtIsNull(UserStatus.valueOf(status), pageable);
         } else {
-            users = userRepository.findAll(pageable);
+            users = userRepository.findByDeletedAtIsNull(pageable);
         }
 
         return PageResponse.of(users.map(this::mapToSummaryResponse));
@@ -392,9 +386,17 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(UUID userId, UUID adminId) {
+        if (userId.equals(adminId)) {
+            throw new BusinessException("Không thể xóa tài khoản đang đăng nhập");
+        }
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-        user.setDeletedAt(LocalDateTime.now());
+        LocalDateTime deletedAt = LocalDateTime.now();
+        user.setDeletedAt(deletedAt);
+        user.setStatus(UserStatus.INACTIVE);
+        user.setEmail("deleted-" + user.getId() + "@deleted.local");
+        user.setPhone(null);
         userRepository.save(user);
         log.info("User soft-deleted: {} by admin {}", userId, adminId);
     }
@@ -503,10 +505,13 @@ public class UserServiceImpl implements UserService {
     }
 
     private String extractPublicId(String url) {
-        // Extract public ID from Cloudinary URL
         if (url == null) return null;
-        String[] parts = url.split("/");
-        String lastPart = parts[parts.length - 1];
-        return lastPart.contains(".") ? lastPart.substring(0, lastPart.lastIndexOf(".")) : lastPart;
+        int uploadIndex = url.indexOf("/upload/");
+        if (uploadIndex < 0) return null;
+
+        String publicId = url.substring(uploadIndex + "/upload/".length());
+        publicId = publicId.replaceFirst("^v\\d+/", "");
+        int extensionIndex = publicId.lastIndexOf('.');
+        return extensionIndex > 0 ? publicId.substring(0, extensionIndex) : publicId;
     }
 }

@@ -1,38 +1,37 @@
-<div class="admin-layout">
+<div class="admin-layout" [class.sidebar-collapsed]="sidebarCollapsed">
   <!-- Sidebar -->
-  <aside class="admin-sidebar">
-    <div class="sidebar-header">
-      <a routerLink="/" class="logo">DELTA<span>SHOP</span></a>
-    </div>
-
+  <aside class="admin-sidebar" [class.collapsed]="sidebarCollapsed">
     <nav class="sidebar-nav">
       <a routerLink="/admin/dashboard" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-speedometer2"></i> Dashboard
+        <i class="bi bi-speedometer2"></i><span class="nav-label">Dashboard</span>
       </a>
       <a routerLink="/admin/products" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-box-seam"></i> Sản phẩm
+        <i class="bi bi-box-seam"></i><span class="nav-label">Sản phẩm</span>
       </a>
       <a routerLink="/admin/categories" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-grid"></i> Danh mục
+        <i class="bi bi-grid"></i><span class="nav-label">Danh mục</span>
       </a>
       <a routerLink="/admin/brands" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-tag"></i> Thương hiệu
+        <i class="bi bi-tag"></i><span class="nav-label">Thương hiệu</span>
+      </a>
+      <a routerLink="/admin/promotions" routerLinkActive="active" class="nav-item">
+        <i class="bi bi-percent"></i><span class="nav-label">Khuyến mãi</span>
       </a>
       <a routerLink="/admin/orders" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-cart-check"></i> Đơn hàng
+        <i class="bi bi-cart-check"></i><span class="nav-label">Đơn hàng</span>
       </a>
       <a routerLink="/admin/users" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-people"></i> Người dùng
+        <i class="bi bi-people"></i><span class="nav-label">Người dùng</span>
       </a>
       <a routerLink="/admin/contacts" routerLinkActive="active" class="nav-item">
-        <i class="bi bi-envelope"></i> Liên hệ
+        <i class="bi bi-envelope"></i><span class="nav-label">Liên hệ</span>
         <span class="badge" *ngIf="pendingCount > 0">{{ pendingCount }}</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
       <button (click)="logout()" class="btn-logout">
-        <i class="bi bi-box-arrow-right"></i> Đăng xuất
+        <i class="bi bi-box-arrow-right"></i><span class="nav-label">Đăng xuất</span>
       </button>
     </div>
   </aside>
@@ -41,7 +40,12 @@
   <div class="main-wrapper">
     <header class="admin-header">
       <div class="header-left">
-        <button class="sidebar-toggle d-lg-none">
+        <button
+          type="button"
+          class="sidebar-toggle"
+          (click)="toggleSidebar()"
+          [attr.aria-label]="sidebarCollapsed ? 'Mở rộng thanh quản trị' : 'Thu gọn thanh quản trị'"
+          [attr.aria-expanded]="!sidebarCollapsed">
           <i class="bi bi-list"></i>
         </button>
         <div class="breadcrumb">Admin / {{ currentRoute }}</div>

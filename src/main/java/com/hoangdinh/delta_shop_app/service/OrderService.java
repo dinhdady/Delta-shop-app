@@ -18,7 +18,7 @@ public interface OrderService {
 
     OrderDetailResponse createOrder(UUID userId, CreateOrderRequest request);
 
-    PageResponse<OrderResponse> getUserOrders(UUID userId, int page, int size);
+    PageResponse<OrderResponse> getUserOrders(UUID userId, int page, int size, String query);
 
     OrderDetailResponse getOrderDetail(UUID orderId, UUID userId);
 
@@ -26,7 +26,7 @@ public interface OrderService {
 
     // ========== ADMIN ORDER OPERATIONS ==========
 
-    PageResponse<OrderResponse> getAllOrders(int page, int size, String status);
+    PageResponse<OrderResponse> getAllOrders(int page, int size, String status, String query);
 
     OrderDetailResponse getOrderById(UUID orderId);
 

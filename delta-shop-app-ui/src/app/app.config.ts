@@ -27,7 +27,10 @@ import {
   AlertCircle,
   CheckCircle,
   EyeOff,
-  ArrowLeft
+  ArrowLeft,
+  Bell,
+  X,
+  Pencil
 } from 'lucide-angular';
 
 import { routes } from './app.routes';
@@ -72,7 +75,10 @@ export const appConfig: ApplicationConfig = {
         AlertCircle,
         CheckCircle,
         EyeOff,
-        ArrowLeft
+        ArrowLeft,
+        Bell,
+        X,
+        Pencil
       })
     )
   ]

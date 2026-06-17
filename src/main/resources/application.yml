@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: dev
   application:
     name: delta-shop-app
 
@@ -13,6 +15,19 @@ spring:
     port: 587
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: smtp.gmail.com
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+    default-encoding: UTF-8
 
   data:
     redis:

@@ -18,13 +18,16 @@ import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
 
-    Optional<User> findByEmailIgnoreCase(String email);
+    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email) AND u.deletedAt IS NULL")
+    Optional<User> findByEmailIgnoreCase(@Param("email") String email);
 
     Optional<User> findByPhone(String phone);
 
-    boolean existsByEmailIgnoreCase(String email);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE LOWER(u.email) = LOWER(:email) AND u.deletedAt IS NULL")
+    boolean existsByEmailIgnoreCase(@Param("email") String email);
 
-    boolean existsByPhone(String phone);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE u.phone = :phone AND u.deletedAt IS NULL")
+    boolean existsByPhone(@Param("phone") String phone);
 
     @Modifying
     @Transactional
@@ -37,11 +40,13 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     void addLoyaltyPoints(@Param("userId") UUID userId, @Param("points") Integer points);
 
     long countByStatus(UserStatus status);
-    Page<User> findByRole(UserRole role, Pageable pageable);
+    Page<User> findByDeletedAtIsNull(Pageable pageable);
 
-    Page<User> findByStatus(UserStatus status, Pageable pageable);
+    Page<User> findByRoleAndDeletedAtIsNull(UserRole role, Pageable pageable);
 
-    Page<User> findByRoleAndStatus(UserRole role, UserStatus status, Pageable pageable);
+    Page<User> findByStatusAndDeletedAtIsNull(UserStatus status, Pageable pageable);
+
+    Page<User> findByRoleAndStatusAndDeletedAtIsNull(UserRole role, UserStatus status, Pageable pageable);
 
     @Query("SELECT u FROM User u WHERE u.deletedAt IS NULL AND " +
             "(LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +

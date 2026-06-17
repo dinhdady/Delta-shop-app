@@ -7,6 +7,7 @@ import com.hoangdinh.delta_shop_app.dto.request.review.ReviewUpdateRequest;
 import com.hoangdinh.delta_shop_app.dto.response.PageResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewStatsResponse;
+import com.hoangdinh.delta_shop_app.dto.response.review.ReviewEligibilityResponse;
 import com.hoangdinh.delta_shop_app.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -34,10 +35,11 @@ public class ReviewController {
     @Operation(summary = "Get product reviews")
     public ResponseEntity<PageResponse<ReviewResponse>> getProductReviews(
             @PathVariable UUID productId,
+            @RequestAttribute(value = "userId", required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy) {
-        return ResponseEntity.ok(reviewService.getProductReviews(productId, page, size, sortBy));
+        return ResponseEntity.ok(reviewService.getProductReviews(productId, userId, page, size, sortBy));
     }
 
     @GetMapping("/products/{productId}/stats")
@@ -47,6 +49,24 @@ public class ReviewController {
     }
 
     // ========== USER ENDPOINTS ==========
+
+    @GetMapping("/order-items/{orderItemId}/eligibility")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Check whether current user can review an order item")
+    public ResponseEntity<ReviewEligibilityResponse> getReviewEligibility(
+            @RequestAttribute("userId") UUID userId,
+            @PathVariable UUID orderItemId) {
+        return ResponseEntity.ok(reviewService.getReviewEligibility(userId, orderItemId));
+    }
+
+    @GetMapping("/eligibility/products/{productId}")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Check whether current user can review a product")
+    public ResponseEntity<ReviewEligibilityResponse> getProductReviewEligibility(
+            @RequestAttribute("userId") UUID userId,
+            @PathVariable UUID productId) {
+        return ResponseEntity.ok(reviewService.getProductReviewEligibility(userId, productId));
+    }
 
     @PostMapping
     @SecurityRequirement(name = "Bearer Authentication")

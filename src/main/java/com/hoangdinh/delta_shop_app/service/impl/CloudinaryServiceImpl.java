@@ -302,12 +302,14 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
     @Override
     public Map<String, Object> uploadUserAvatar(MultipartFile file, String userId) {
+        validateImage(file);
         String folder = "users/" + userId + "/avatar";
         Map<String, Object> options = ObjectUtils.asMap(
                 "folder", cloudinaryConfig.getDefaultFolder() + "/" + folder,
                 "public_id", "avatar",
                 "tags", new String[]{"user", userId, "avatar"},
-                "overwrite", true
+                "overwrite", true,
+                "invalidate", true
         );
 
         return uploadFileWithOptions(file, folder, options);

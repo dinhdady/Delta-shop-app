@@ -41,4 +41,9 @@ public interface VariantAttributeValueRepository extends JpaRepository<VariantAt
 
     @Query("SELECT DISTINCT vav.value FROM VariantAttributeValue vav WHERE vav.attribute.code = :attributeCode")
     List<String> getDistinctValuesByAttributeCode(@Param("attributeCode") String attributeCode);
+
+    @Query("SELECT DISTINCT vav.variant.id FROM VariantAttributeValue vav " +
+            "WHERE LOWER(vav.attribute.code) = LOWER(:attributeCode) AND LOWER(vav.value) = LOWER(:value)")
+    List<UUID> findVariantIdsByAttributeCodeAndValue(@Param("attributeCode") String attributeCode,
+                                                     @Param("value") String value);
 }

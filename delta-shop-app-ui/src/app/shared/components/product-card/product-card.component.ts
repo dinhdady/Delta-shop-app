@@ -1,10 +1,12 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { LucideAngularModule, ShoppingCart, Eye } from 'lucide-angular';
+import { LucideAngularModule, ShoppingCart, Eye, Heart } from 'lucide-angular';
 import { ProductSummary } from '../../../core/services/product.service';
-import { CartService } from '../../../core/services/cart.service';
 import { ToastrService } from 'ngx-toastr';
+import { WishlistService } from '../../../core/services/wishlist.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { Observable } from 'rxjs';
 
 @Component({
   selector: 'app-product-card',
@@ -31,6 +33,11 @@ import { ToastrService } from 'ngx-toastr';
         </div>
 
         <div class="card-actions">
+           <button type="button" class="action-btn" [class.active]="!wishlistMode && isInWishlist()"
+                   [title]="wishlistMode ? 'Thêm vào giỏ hàng' : 'Yêu thích'"
+                   (click)="handlePrimaryAction($event)">
+              <lucide-icon [name]="wishlistMode ? 'shopping-cart' : 'heart'"></lucide-icon>
+           </button>
            <a [routerLink]="['/products', product.id]" class="action-btn" title="Xem chi tiết">
               <lucide-icon name="eye"></lucide-icon>
            </a>
@@ -122,6 +129,8 @@ import { ToastrService } from 'ngx-toastr';
     .action-btn {
       background-color: var(--color-dark);
       color: white;
+      border: 0;
+      cursor: pointer;
       width: 40px;
       height: 40px;
       border-radius: 50%;
@@ -133,6 +142,11 @@ import { ToastrService } from 'ngx-toastr';
       &:hover {
         background-color: var(--color-primary);
         transform: scale(1.1);
+      }
+
+      &.active {
+        background-color: var(--color-primary);
+        color: white;
       }
     }
 
@@ -196,7 +210,54 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class ProductCardComponent {
   @Input({ required: true }) product!: ProductSummary;
+  @Input() wishlistMode = false;
+  @Output() addToCart = new EventEmitter<string>();
+
+  private wishlistService = inject(WishlistService);
+  private authService = inject(AuthService);
+  private router = inject(Router);
+  private toastr = inject(ToastrService);
   
   readonly ShoppingCart = ShoppingCart;
   readonly Eye = Eye;
+  readonly Heart = Heart;
+
+  isInWishlist(): boolean {
+    return this.wishlistService.isInWishlist(this.product.id);
+  }
+
+  toggleWishlist(event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!this.authService.isAuthenticated()) {
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+
+    const wasInWishlist = this.isInWishlist();
+    const request$: Observable<unknown> = wasInWishlist
+      ? this.wishlistService.remove(this.product.id)
+      : this.wishlistService.add(this.product.id);
+
+    request$.subscribe({
+      next: () => {
+        const message = wasInWishlist
+          ? 'Đã xóa khỏi danh sách yêu thích'
+          : 'Đã thêm vào danh sách yêu thích';
+        this.toastr.success(message);
+      },
+      error: () => this.toastr.error('Không thể cập nhật danh sách yêu thích')
+    });
+  }
+
+  handlePrimaryAction(event: Event): void {
+    if (this.wishlistMode) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.addToCart.emit(this.product.id);
+      return;
+    }
+    this.toggleWishlist(event);
+  }
 }

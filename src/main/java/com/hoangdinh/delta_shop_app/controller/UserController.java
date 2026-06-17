@@ -97,13 +97,13 @@ public class UserController {
     @SecurityRequirement(name = "Bearer Authentication")
 //    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Upload user avatar")
-    public ResponseEntity<String> uploadAvatar(
+    public ResponseEntity<UserProfileResponse> uploadAvatar(
             @RequestAttribute("userId") UUID userId,
             @RequestParam("file") MultipartFile file) {
         var uploadResult = cloudinaryService.uploadUserAvatar(file, userId.toString());
         String avatarUrl = (String) uploadResult.get("secure_url");
         userService.uploadAvatar(userId, avatarUrl);
-        return ResponseEntity.ok(avatarUrl);
+        return ResponseEntity.ok(userService.getProfile(userId));
     }
 
     @DeleteMapping("/me/avatar")

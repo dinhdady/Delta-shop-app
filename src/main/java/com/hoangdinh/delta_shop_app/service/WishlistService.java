@@ -3,6 +3,7 @@ package com.hoangdinh.delta_shop_app.service;
 import com.hoangdinh.delta_shop_app.dto.response.PageResponse;
 import com.hoangdinh.delta_shop_app.dto.response.product.ProductSummaryResponse;
 import com.hoangdinh.delta_shop_app.dto.response.wishlist.WishlistResponse;
+import com.hoangdinh.delta_shop_app.dto.response.cart.CartResponse;
 
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,6 @@ public interface WishlistService {
     void removeMultipleFromWishlist(UUID userId, List<UUID> productIds);
 
     // Move to cart
-    void moveWishlistItemToCart(UUID userId, UUID productId);
-    void moveAllWishlistToCart(UUID userId);
+    CartResponse moveWishlistItemToCart(UUID userId, UUID productId);
+    CartResponse moveAllWishlistToCart(UUID userId);
 }

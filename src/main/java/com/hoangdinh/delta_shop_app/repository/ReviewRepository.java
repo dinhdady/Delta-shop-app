@@ -27,8 +27,12 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     Optional<Review> findByUserIdAndProductId(UUID userId, UUID productId);
 
+    Optional<Review> findByOrderItemId(UUID orderItemId);
+
     // Existence checks
     boolean existsByUserIdAndProductId(UUID userId, UUID productId);
+
+    boolean existsByOrderItemId(UUID orderItemId);
 
     @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END FROM Review r " +
             "WHERE r.id = :reviewId AND r.user.id = :userId")
@@ -51,7 +55,10 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
 
     // Purchase verification
     @Query("SELECT CASE WHEN COUNT(oi) > 0 THEN true ELSE false END FROM OrderItem oi " +
-            "WHERE oi.product.id = :productId AND oi.order.user.id = :userId AND oi.order.status = 'DELIVERED'")
+            "WHERE oi.product.id = :productId AND oi.order.user.id = :userId " +
+            "AND oi.order.paymentStatus = 'PAID' " +
+            "AND oi.order.status NOT IN ('CANCELLED', 'REFUNDED') AND oi.isReviewed = false " +
+            "AND NOT EXISTS (SELECT r.id FROM Review r WHERE r.user.id = :userId AND r.product.id = :productId)")
     boolean canUserReviewProduct(@Param("userId") UUID userId, @Param("productId") UUID productId);
 
     // Delete operations

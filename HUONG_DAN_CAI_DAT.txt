@@ -1,0 +1,57 @@
+======================================================
+HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY DỰ ÁN DELTA SHOP APP
+======================================================
+
+Dự án bao gồm 2 phần chính:
+1. Backend: Java Spring Boot (sử dụng Maven)
+2. Frontend: Angular (nằm trong thư mục delta-shop-app-ui)
+
+YÊU CẦU MÔI TRƯỜNG (PREREQUISITES):
+- Java Development Kit (JDK) 17 hoặc mới hơn
+- Maven (tuỳ chọn, dự án đã có sẵn mvnw)
+- Node.js (phiên bản 18.x trở lên) và npm
+- Angular CLI (cài đặt thông qua npm: `npm install -g @angular/cli`)
+- MySQL Server (phiên bản 8.x)
+- Redis Server (nếu cần sử dụng tính năng cache/session, chạy tại localhost cổng 6379)
+
+======================================================
+BƯỚC 1: CẤU HÌNH CƠ SỞ DỮ LIỆU (DATABASE)
+======================================================
+1. Mở MySQL (thông qua MySQL Workbench hoặc Terminal).
+2. Tạo database mới với tên `deltashopapp`:
+   CREATE DATABASE deltashopapp;
+3. Đảm bảo thông tin đăng nhập trong file `src/main/resources/application-dev.yml` (hoặc `application.yml`) khớp với MySQL của bạn:
+   - Username mặc định: root
+   - Password mặc định: 123456789
+   - Cổng MySQL: 3306
+
+======================================================
+BƯỚC 2: CHẠY BACKEND (SPRING BOOT)
+======================================================
+1. Mở Terminal (hoặc Command Prompt/PowerShell) tại thư mục gốc của dự án (`d:\HoangDinhProject\delta-shop-app`).
+2. Tải các dependencies và chạy dự án bằng Maven Wrapper:
+   - Trên Windows: 
+     mvnw.cmd spring-boot:run
+   - Trên Mac/Linux:
+     ./mvnw spring-boot:run
+3. Đợi cho đến khi console báo "Started ...Application".
+4. Backend sẽ chạy ở địa chỉ: http://localhost:8080/api
+
+======================================================
+BƯỚC 3: CHẠY FRONTEND (ANGULAR)
+======================================================
+1. Mở một Terminal khác và di chuyển vào thư mục frontend:
+   cd delta-shop-app-ui
+2. Cài đặt các thư viện (node_modules):
+   npm install
+3. Khởi động server phát triển của Angular:
+   ng serve (hoặc `npm start`)
+4. Đợi quá trình compile hoàn tất.
+5. Truy cập ứng dụng tại trình duyệt: http://localhost:4200/
+
+======================================================
+MỘT SỐ LƯU Ý KHÁC
+======================================================
+- Tài khoản Email: Hệ thống có sử dụng email gửi thông báo, cấu hình SMTP nằm trong file `application-dev.yml`. Nếu bạn gặp lỗi gửi email, hãy kiểm tra lại mật khẩu ứng dụng (App Password) của Gmail.
+- API Document (Swagger UI): Bạn có thể xem danh sách các API của hệ thống tại: http://localhost:8080/api/swagger-ui.html
+- Tích hợp VNPay & Cloudinary: Dự án có sử dụng các API bên thứ 3. Bạn có thể cần thiết lập các biến môi trường (Environment Variables) hoặc sửa trực tiếp trong file cấu hình nếu muốn dùng tài khoản của riêng bạn.

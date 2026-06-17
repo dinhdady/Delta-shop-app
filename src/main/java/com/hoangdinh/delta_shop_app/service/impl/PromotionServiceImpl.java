@@ -118,17 +118,29 @@ public class PromotionServiceImpl implements PromotionService {
 
     @Override
     public PageResponse<PromotionResponse> getAllPromotions(int page, int size, String status) {
-        return null;
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<Promotion> promotions;
+        if ("ACTIVE".equalsIgnoreCase(status)) {
+            promotions = promotionRepository.findByIsActiveTrue(pageable);
+        } else {
+            promotions = promotionRepository.findAll(pageable);
+        }
+        return PageResponse.of(promotions.map(PromotionResponse::from));
     }
 
     @Override
     public List<PromotionResponse> getActivePromotions() {
-        return List.of();
+        return promotionRepository.findAllApplicablePromotions(LocalDateTime.now()).stream()
+                .map(PromotionResponse::from)
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<PromotionResponse> getPromotionsApplicableToOrder(BigDecimal subtotal, UUID userId) {
-        return List.of();
+        return getActivePromotions().stream()
+                .filter(promotion -> promotion.getMinOrderAmount() == null ||
+                        subtotal.compareTo(promotion.getMinOrderAmount()) >= 0)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -169,8 +181,36 @@ public class PromotionServiceImpl implements PromotionService {
     }
 
     @Override
+    @Transactional
     public PromotionResponse duplicatePromotion(UUID id, UUID adminId) {
-        return null;
+        Promotion source = promotionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Promotion", "id", id));
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin", "id", adminId));
+        if (!admin.isAdmin()) {
+            throw new BusinessException("Chỉ admin mới có quyền nhân bản khuyến mãi");
+        }
+
+        String copiedCode = source.getCode() == null ? null
+                : source.getCode() + "-COPY-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        Promotion copy = Promotion.builder()
+                .name(source.getName() + " (Bản sao)")
+                .code(copiedCode)
+                .description(source.getDescription())
+                .type(source.getType())
+                .value(source.getValue())
+                .minOrderAmount(source.getMinOrderAmount())
+                .maxDiscountAmount(source.getMaxDiscountAmount())
+                .usageLimit(source.getUsageLimit())
+                .usagePerUser(source.getUsagePerUser())
+                .appliesTo(source.getAppliesTo())
+                .startsAt(source.getStartsAt())
+                .endsAt(source.getEndsAt())
+                .isActive(false)
+                .isStackable(source.isStackable())
+                .createdBy(admin)
+                .build();
+        return PromotionResponse.from(promotionRepository.save(copy));
     }
 
     @Override
@@ -186,7 +226,16 @@ public class PromotionServiceImpl implements PromotionService {
 
     @Override
     public BigDecimal calculateBestDiscount(BigDecimal subtotal, UUID userId, List<String> applicableCodes) {
-        return null;
+        if (applicableCodes == null || applicableCodes.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        return applicableCodes.stream()
+                .map(code -> validatePromotion(code, subtotal, userId))
+                .filter(PromotionValidationResponse::isValid)
+                .map(PromotionValidationResponse::getDiscountAmount)
+                .filter(java.util.Objects::nonNull)
+                .max(BigDecimal::compareTo)
+                .orElse(BigDecimal.ZERO);
     }
 
     @Override

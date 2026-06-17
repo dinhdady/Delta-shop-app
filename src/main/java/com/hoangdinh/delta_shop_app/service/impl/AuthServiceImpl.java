@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -37,6 +39,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
+
+    private static final String EMAIL_VERIFICATION_TYPE = "EMAIL_VERIFICATION";
+    private static final String PASSWORD_RESET_TYPE = "PASSWORD_RESET";
+    private static final SecureRandom OTP_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -91,12 +97,11 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(user);
         log.info("User registered with PENDING status: {}", savedUser.getEmail());
 
-        // Generate verification token with type
-        String verificationToken = UUID.randomUUID().toString();
+        String otp = generateOtp();
         VerificationToken token = VerificationToken.builder()
-                .token(verificationToken)
+                .token(otp)
                 .user(savedUser)
-                .type("EMAIL_VERIFICATION")  // Set type
+                .type(EMAIL_VERIFICATION_TYPE)
                 .expiryDate(LocalDateTime.now().plusHours(24))
                 .build();
         verificationTokenRepository.save(token);
@@ -106,11 +111,12 @@ public class AuthServiceImpl implements AuthService {
             emailService.sendEmailVerification(
                     savedUser.getEmail(),
                     savedUser.getFirstName(),
-                    verificationToken
+                    otp
             );
             log.info("Verification email sent to: {}", savedUser.getEmail());
         } catch (Exception e) {
-            log.error("Failed to send verification email: {}", e.getMessage());
+            log.error("Failed to send verification email to {}", savedUser.getEmail(), e);
+            throw new BusinessException("Không thể gửi email xác thực. Vui lòng kiểm tra cấu hình SMTP và thử lại.");
         }
 
         // Return response without tokens
@@ -128,6 +134,8 @@ public class AuthServiceImpl implements AuthService {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.getEmail().toLowerCase(), request.getPassword()));
+        } catch (DisabledException e) {
+            throw new BusinessException("Tài khoản chưa được kích hoạt hoặc đã bị vô hiệu hóa. Vui lòng kiểm tra email xác thực hoặc liên hệ quản trị viên.");
         } catch (BadCredentialsException e) {
             throw new BusinessException("Email hoặc mật khẩu không chính xác");
         }
@@ -199,17 +207,23 @@ public class AuthServiceImpl implements AuthService {
     }
     @Override
     @Transactional
-    public void verifyEmail(String token) {
+    public void verifyEmail(VerifyEmailRequest request) {
         log.info("=== START VERIFY EMAIL ===");
 
-        VerificationToken verificationToken = verificationTokenRepository.findByToken(token)
-                .orElseThrow(() -> new BusinessException("Token xác thực không hợp lệ"));
+        User user = userRepository.findByEmailIgnoreCase(request.getEmail())
+                .orElseThrow(() -> new BusinessException("Email không tồn tại"));
 
-        if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
-            throw new BusinessException("Token xác thực đã hết hạn. Vui lòng yêu cầu gửi lại email xác thực.");
+        VerificationToken verificationToken = verificationTokenRepository.findByToken(request.getOtp())
+                .orElseThrow(() -> new BusinessException("Mã OTP không hợp lệ"));
+
+        if (!verificationToken.getUser().getId().equals(user.getId()) || !EMAIL_VERIFICATION_TYPE.equals(verificationToken.getType())) {
+            throw new BusinessException("Mã OTP không hợp lệ cho tài khoản này");
         }
 
-        User user = verificationToken.getUser();
+        if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Mã OTP đã hết hạn. Vui lòng yêu cầu gửi lại email xác thực.");
+        }
+
         if (user.isEmailVerified()) {
             throw new BusinessException("Email đã được xác thực trước đó");
         }
@@ -231,24 +245,46 @@ public class AuthServiceImpl implements AuthService {
     public void requestPasswordReset(ForgotPasswordRequest request) {
         userRepository.findByEmailIgnoreCase(request.getEmail()).ifPresent(user -> {
             // Invalidate old password reset tokens
-            verificationTokenRepository.deleteByUserIdAndType(user.getId(), "PASSWORD_RESET");
+            verificationTokenRepository.deleteByUserIdAndType(user.getId(), PASSWORD_RESET_TYPE);
 
-            String token = UUID.randomUUID().toString();
+            String otp = generateOtp();
+            
             VerificationToken vt = VerificationToken.builder()
                     .user(user)
-                    .token(token)
-                    .type("PASSWORD_RESET")
-                    .expiryDate(LocalDateTime.now().plusHours(2))
+                    .token(otp)
+                    .type(PASSWORD_RESET_TYPE)
+                    .expiryDate(LocalDateTime.now().plusMinutes(15))
                     .build();
             verificationTokenRepository.save(vt);
-            emailService.sendPasswordReset(user.getEmail(), user.getFirstName(), token);
-            log.info("Password reset requested for user: {}", user.getEmail());
+            emailService.sendPasswordReset(user.getEmail(), user.getFirstName(), otp);
+            log.info("Password reset OTP requested for user: {}", user.getEmail());
         });
     }
 
     @Override
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByEmailIgnoreCase(request.getEmail())
+                .orElseThrow(() -> new BusinessException("Email không tồn tại"));
 
+        VerificationToken vt = verificationTokenRepository.findByToken(request.getOtp())
+                .orElseThrow(() -> new BusinessException("Mã OTP không hợp lệ"));
+
+        if (!vt.getUser().getId().equals(user.getId()) || !PASSWORD_RESET_TYPE.equals(vt.getType())) {
+            throw new BusinessException("Mã OTP không hợp lệ cho tài khoản này");
+        }
+
+        if (vt.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Mã OTP đã hết hạn");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        
+        verificationTokenRepository.delete(vt);
+        refreshTokenRepository.revokeAllByUserId(user.getId());
+        
+        log.info("Password reset successfully for user: {}", user.getEmail());
     }
 
     @Override
@@ -263,20 +299,18 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Email đã được xác thực");
         }
 
-        // Delete old tokens
-        verificationTokenRepository.deleteByUser(user);
+        verificationTokenRepository.deleteByUserIdAndType(user.getId(), EMAIL_VERIFICATION_TYPE);
 
-        // Create new token
-        String newToken = UUID.randomUUID().toString();
+        String otp = generateOtp();
         VerificationToken verificationToken = VerificationToken.builder()
-                .token(newToken)
+                .token(otp)
                 .user(user)
+                .type(EMAIL_VERIFICATION_TYPE)
                 .expiryDate(LocalDateTime.now().plusHours(24))
                 .build();
         verificationTokenRepository.save(verificationToken);
 
-        // Send new verification email
-        emailService.sendEmailVerification(user.getEmail(), user.getFirstName(), newToken);
+        emailService.sendEmailVerification(user.getEmail(), user.getFirstName(), otp);
 
         log.info("New verification email sent to: {}", email);
     }
@@ -368,8 +402,13 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole().name())
                 .emailVerified(user.isEmailVerified())
                 .build();
+    }
+
+    private String generateOtp() {
+        return String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
     }
 }

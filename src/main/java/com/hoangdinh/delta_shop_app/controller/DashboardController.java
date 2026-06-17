@@ -11,6 +11,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.util.List;
 
 @RestController
 @RequestMapping("/dashboard")
@@ -73,5 +76,67 @@ public class DashboardController {
     @Operation(summary = "Get inventory dashboard")
     public ResponseEntity<InventoryDashboardResponse> getInventoryDashboard() {
         return ResponseEntity.ok(dashboardService.getInventoryDashboard());
+    }
+
+    @GetMapping("/admin/top-categories")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<TopCategoriesResponse> getTopCategories(@RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(dashboardService.getTopCategories(limit));
+    }
+
+    @GetMapping("/admin/sales/daily")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<DailySalesResponse> getDailySales(@RequestParam LocalDate date) {
+        return ResponseEntity.ok(dashboardService.getDailySales(date));
+    }
+
+    @GetMapping("/admin/sales/monthly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<MonthlySalesResponse> getMonthlySales(@RequestParam int year, @RequestParam int month) {
+        return ResponseEntity.ok(dashboardService.getMonthlySales(year, month));
+    }
+
+    @GetMapping("/admin/sales/yearly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<YearlySalesResponse> getYearlySales(@RequestParam int year) {
+        return ResponseEntity.ok(dashboardService.getYearlySales(year));
+    }
+
+    @GetMapping("/admin/charts/revenue-by-category")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ChartDataResponse> getRevenueByCategoryChartData() {
+        return ResponseEntity.ok(dashboardService.getRevenueByCategoryChartData());
+    }
+
+    @GetMapping("/admin/customers")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<CustomerAnalyticsResponse> getCustomerAnalytics() {
+        return ResponseEntity.ok(dashboardService.getCustomerAnalytics());
+    }
+
+    @GetMapping("/admin/activities")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<List<UserActivityResponse>> getRecentActivities(@RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(dashboardService.getRecentUserActivities(limit));
+    }
+
+    @GetMapping("/admin/export/sales")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> exportSales(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate,
+                                              @RequestParam(defaultValue = "csv") String format) {
+        return download(dashboardService.exportSalesReport(startDate, endDate, format), "sales-report.csv");
+    }
+
+    @GetMapping("/admin/export/inventory")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> exportInventory(@RequestParam(defaultValue = "csv") String format) {
+        return download(dashboardService.exportInventoryReport(format), "inventory-report.csv");
+    }
+
+    private ResponseEntity<byte[]> download(byte[] content, String filename) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(content);
     }
 }

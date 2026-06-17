@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { Router, RouterOutlet } from '@angular/router';
 import { NavbarComponent } from './shared/components/navbar/navbar.component';
 import { FooterComponent } from './shared/components/footer/footer.component';
 
@@ -12,7 +12,9 @@ import { FooterComponent } from './shared/components/footer/footer.component';
     <main class="main-container">
       <router-outlet></router-outlet>
     </main>
-    <app-footer></app-footer>
+    @if (!isAdminRoute()) {
+      <app-footer></app-footer>
+    }
   `,
   styles: [`
     .main-container {
@@ -21,5 +23,10 @@ import { FooterComponent } from './shared/components/footer/footer.component';
   `]
 })
 export class AppComponent {
+  private router = inject(Router);
   title = 'Delta Sports';
+
+  isAdminRoute(): boolean {
+    return this.router.url.startsWith('/admin');
+  }
 }

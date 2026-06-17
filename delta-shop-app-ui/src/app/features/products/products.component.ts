@@ -15,7 +15,7 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
     <div class="page-header">
       <div class="container">
         <h1>SẢN PHẨM</h1>
-        <p>Tất cả sản phẩm thể thao chuyên nghiệp</p>
+        <p>{{ searchKeyword ? 'Kết quả tìm kiếm cho "' + searchKeyword + '"' : 'Tất cả sản phẩm thể thao chuyên nghiệp' }}</p>
       </div>
     </div>
 
@@ -42,18 +42,70 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
                 }
               </div>
             </div>
+
+            <div class="filter-group">
+              <h4>Khoảng giá</h4>
+              <div class="price-inputs">
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  [ngModel]="formatPriceInput(minPrice)"
+                  (ngModelChange)="minPrice = parsePriceInput($event)"
+                  placeholder="Từ (₫)">
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  [ngModel]="formatPriceInput(maxPrice)"
+                  (ngModelChange)="maxPrice = parsePriceInput($event)"
+                  placeholder="Đến (₫)">
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <h4>Đánh giá</h4>
+              <select class="filter-select" [(ngModel)]="minRating">
+                <option [ngValue]="null">Tất cả đánh giá</option>
+                <option [ngValue]="4">Từ 4 sao</option>
+                <option [ngValue]="3">Từ 3 sao</option>
+                <option [ngValue]="2">Từ 2 sao</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label class="checkbox-container">
+                <input type="checkbox" [(ngModel)]="inStockOnly">
+                <span class="checkmark"></span>
+                Chỉ sản phẩm còn hàng
+              </label>
+            </div>
+
+            <div class="filter-actions">
+              <button type="button" class="apply-filter" (click)="applyFilters()">Áp dụng</button>
+              <button type="button" class="reset-filter" (click)="resetFilters()">Đặt lại</button>
+            </div>
           </aside>
 
           <!-- Main Content -->
           <main class="main-content">
             <div class="toolbar">
-              <div class="results-count">
-                Hiển thị {{ totalElements }} sản phẩm
+              <div class="toolbar-left">
+                <div class="results-count">
+                  Hiển thị {{ totalElements }} sản phẩm
+                </div>
+                @if (searchKeyword) {
+                  <button class="clear-search" type="button" (click)="clearSearch()">
+                    Xóa tìm kiếm: "{{ searchKeyword }}"
+                  </button>
+                }
               </div>
               <div class="sort-control">
-                <select [(ngModel)]="sortDir" (change)="loadProducts()">
-                  <option value="desc">Mới nhất</option>
-                  <option value="asc">Cũ nhất</option>
+                <select [(ngModel)]="sortOption" (change)="onSortChange()">
+                  <option value="newest">Mới nhất</option>
+                  <option value="oldest">Cũ nhất</option>
+                  <option value="priceAsc">Giá tăng dần</option>
+                  <option value="priceDesc">Giá giảm dần</option>
+                  <option value="ratingDesc">Đánh giá cao nhất</option>
+                  <option value="soldDesc">Bán chạy nhất</option>
                 </select>
               </div>
             </div>
@@ -199,6 +251,53 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
       gap: 0.75rem;
     }
 
+    .price-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .price-inputs input,
+    .filter-select {
+      width: 100%;
+      min-width: 0;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      background: #ffffff;
+      outline: none;
+    }
+
+    .price-inputs input:focus,
+    .filter-select:focus {
+      border-color: #cd4631;
+    }
+
+    .filter-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .filter-actions button {
+      padding: 0.7rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .apply-filter {
+      border: 1px solid #cd4631;
+      background: #cd4631;
+      color: #ffffff;
+    }
+
+    .reset-filter {
+      border: 1px solid #dddddd;
+      background: #ffffff;
+      color: #555555;
+    }
+
     .checkbox-container {
       display: block;
       position: relative;
@@ -281,6 +380,29 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
     .results-count {
       font-size: 0.85rem;
       color: #777;
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .clear-search {
+      border: 1px solid rgba(205, 70, 49, 0.25);
+      background: #fff5f2;
+      color: #cd4631;
+      border-radius: 999px;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s ease;
+    }
+
+    .clear-search:hover {
+      background: #cd4631;
+      color: #ffffff;
     }
 
     .sort-control {
@@ -443,15 +565,33 @@ export class ProductsComponent implements OnInit {
   loading = true;
   totalElements = 0;
 
+  sortBy = 'createdAt';
   sortDir = 'desc';
+  sortOption = 'newest';
   selectedCategories: string[] = [];
+  searchKeyword = '';
+  minPrice: number | null = null;
+  maxPrice: number | null = null;
+  minRating: number | null = null;
+  inStockOnly = false;
 
   ngOnInit() {
     this.loadCategories();
     this.route.queryParams.subscribe(params => {
+      const kw = params['keyword'];
+      this.searchKeyword = (kw && kw !== 'null' && kw !== 'undefined') ? kw.trim() : '';
       if (params['category']) {
         this.selectedCategories = Array.isArray(params['category']) ? params['category'] : [params['category']];
+      } else {
+        this.selectedCategories = [];
       }
+      this.minPrice = this.toNumberOrNull(params['minPrice']);
+      this.maxPrice = this.toNumberOrNull(params['maxPrice']);
+      this.minRating = this.toNumberOrNull(params['minRating']);
+      this.inStockOnly = params['inStockOnly'] === 'true';
+      this.sortBy = params['sortBy'] || 'createdAt';
+      this.sortDir = params['sortDir'] === 'asc' ? 'asc' : 'desc';
+      this.sortOption = this.getSortOption(this.sortBy, this.sortDir);
       this.loadProducts();
     });
   }
@@ -465,6 +605,7 @@ export class ProductsComponent implements OnInit {
   loadProducts() {
     this.loading = true;
     const params: any = {
+      sortBy: this.sortBy,
       sortDir: this.sortDir,
       size: 12
     };
@@ -472,6 +613,15 @@ export class ProductsComponent implements OnInit {
     if (this.selectedCategories.length > 0) {
       params.categoryId = this.selectedCategories[0]; // Assuming backend takes single for now or update logic
     }
+
+    if (this.searchKeyword) {
+      params.keyword = this.searchKeyword;
+    }
+
+    if (this.minPrice !== null) params.minPrice = this.minPrice;
+    if (this.maxPrice !== null) params.maxPrice = this.maxPrice;
+    if (this.minRating !== null) params.minRating = this.minRating;
+    if (this.inStockOnly) params.inStockOnly = true;
 
     this.productService.getProducts(params).subscribe({
       next: (res) => {
@@ -498,5 +648,94 @@ export class ProductsComponent implements OnInit {
       queryParams: { category: this.selectedCategories.length > 0 ? this.selectedCategories[0] : null },
       queryParamsHandling: 'merge'
     });
+  }
+
+  clearSearch() {
+    this.searchKeyword = '';
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { keyword: null },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  applyFilters() {
+    this.updateFilterQueryParams();
+  }
+
+  resetFilters() {
+    this.selectedCategories = [];
+    this.minPrice = null;
+    this.maxPrice = null;
+    this.minRating = null;
+    this.inStockOnly = false;
+    this.sortBy = 'createdAt';
+    this.sortDir = 'desc';
+    this.sortOption = 'newest';
+
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        category: null,
+        minPrice: null,
+        maxPrice: null,
+        minRating: null,
+        inStockOnly: null,
+        sortBy: null,
+        sortDir: null
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  onSortChange() {
+    const sortMap: Record<string, [string, string]> = {
+      newest: ['createdAt', 'desc'],
+      oldest: ['createdAt', 'asc'],
+      priceAsc: ['price', 'asc'],
+      priceDesc: ['price', 'desc'],
+      ratingDesc: ['rating', 'desc'],
+      soldDesc: ['sold', 'desc']
+    };
+    [this.sortBy, this.sortDir] = sortMap[this.sortOption] || sortMap['newest'];
+    this.updateFilterQueryParams();
+  }
+
+  private updateFilterQueryParams() {
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        category: this.selectedCategories[0] || null,
+        minPrice: this.minPrice,
+        maxPrice: this.maxPrice,
+        minRating: this.minRating,
+        inStockOnly: this.inStockOnly ? true : null,
+        sortBy: this.sortBy === 'createdAt' ? null : this.sortBy,
+        sortDir: this.sortDir === 'desc' ? null : this.sortDir
+      },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  private toNumberOrNull(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  formatPriceInput(value: number | null): string {
+    return value === null ? '' : new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
+  }
+
+  parsePriceInput(value: string): number | null {
+    const digits = String(value).replace(/\D/g, '');
+    return digits ? Number(digits) : null;
+  }
+
+  private getSortOption(sortBy: string, sortDir: string): string {
+    if (sortBy === 'price') return sortDir === 'asc' ? 'priceAsc' : 'priceDesc';
+    if (sortBy === 'rating') return 'ratingDesc';
+    if (sortBy === 'sold') return 'soldDesc';
+    return sortDir === 'asc' ? 'oldest' : 'newest';
   }
 }

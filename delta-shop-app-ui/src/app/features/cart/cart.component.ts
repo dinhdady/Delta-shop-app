@@ -84,7 +84,7 @@ import { FormsModule } from '@angular/forms';
                     {{ item.subtotal | currency:'VND':'symbol':'1.0-0' }}
                   </div>
                   <div class="col-action">
-                    <button class="remove-btn" (click)="removeItem(item.id); $event.stopPropagation()" aria-label="Xóa">
+                    <button class="remove-btn" (click)="openRemoveConfirm(item); $event.stopPropagation()" aria-label="Xóa">
                       <lucide-icon name="trash-2"></lucide-icon>
                     </button>
                   </div>
@@ -115,6 +115,42 @@ import { FormsModule } from '@angular/forms';
         }
       </div>
     </section>
+
+    @if (itemPendingRemove) {
+      <div class="confirm-backdrop" (click)="closeRemoveConfirm()">
+        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="remove-dialog-title"
+             (click)="$event.stopPropagation()">
+          <div class="confirm-icon">
+            <lucide-icon name="trash-2" [size]="22"></lucide-icon>
+          </div>
+          <div class="confirm-content">
+            <h2 id="remove-dialog-title">Xóa sản phẩm khỏi giỏ hàng?</h2>
+            <p>Sản phẩm sẽ được loại khỏi giỏ hàng hiện tại.</p>
+
+            <div class="confirm-product">
+              <img [src]="getProductImage(itemPendingRemove)" [alt]="itemPendingRemove.productName"
+                   (error)="onImageError($event, itemPendingRemove)">
+              <div>
+                <strong>{{ itemPendingRemove.productName }}</strong>
+                @if (itemPendingRemove.variantName) {
+                  <span>{{ itemPendingRemove.variantName }}</span>
+                }
+                <span>{{ itemPendingRemove.subtotal | currency:'VND':'symbol':'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="confirm-actions">
+            <button type="button" class="cancel-button" [disabled]="removingItem" (click)="closeRemoveConfirm()">
+              Giữ lại
+            </button>
+            <button type="button" class="delete-button" [disabled]="removingItem" (click)="confirmRemoveItem()">
+              <lucide-icon name="trash-2" [size]="17"></lucide-icon>
+              {{ removingItem ? 'Đang xóa...' : 'Xóa sản phẩm' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .page-header {
@@ -386,6 +422,129 @@ import { FormsModule } from '@angular/forms';
       align-items: center;
       justify-content: center;
     }
+
+    .confirm-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(17, 24, 39, 0.58);
+    }
+
+    .confirm-dialog {
+      width: min(100%, 480px);
+      padding: 1.5rem;
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .confirm-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 1rem;
+      border-radius: 50%;
+      background: #fff1f2;
+      color: #dc2626;
+    }
+
+    .confirm-content {
+      h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.35rem;
+        text-transform: none;
+      }
+
+      > p {
+        margin: 0 0 1.25rem;
+        color: var(--color-gray);
+      }
+    }
+
+    .confirm-product {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: 6px;
+      background: #f8fafc;
+
+      img {
+        width: 64px;
+        height: 64px;
+        flex: 0 0 64px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: #fff;
+      }
+
+      div {
+        min-width: 0;
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      strong {
+        overflow-wrap: anywhere;
+      }
+
+      span {
+        color: var(--color-gray);
+        font-size: 0.875rem;
+      }
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+
+      button {
+        min-height: 42px;
+        padding: 0 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.65;
+      }
+    }
+
+    .cancel-button {
+      border: 1px solid var(--color-border);
+      background: #fff;
+      color: var(--color-dark);
+    }
+
+    .delete-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid #dc2626;
+      background: #dc2626;
+      color: #fff;
+    }
+
+    @media (max-width: 520px) {
+      .confirm-actions {
+        flex-direction: column-reverse;
+
+        button {
+          width: 100%;
+          justify-content: center;
+        }
+      }
+    }
   `]
 })
 export class CartComponent implements OnInit {
@@ -398,6 +557,8 @@ export class CartComponent implements OnInit {
 
   cartItems = this.cartService.cartItems;
   cartTotal = this.cartService.cartTotal;
+  itemPendingRemove: CartItem | null = null;
+  removingItem = false;
 
   ngOnInit(): void {
     // Component initialization
@@ -440,17 +601,31 @@ export class CartComponent implements OnInit {
     }
   }
 
-  removeItem(cartItemId: string) {
-    if (confirm('Bạn có chắc muốn xóa sản phẩm này khỏi giỏ hàng?')) {
-      this.cartService.removeFromCart(cartItemId).subscribe({
-        next: () => {
-          this.toastr.success('Đã xóa sản phẩm khỏi giỏ hàng');
-        },
-        error: (err: any) => {
-          console.error('Error removing item:', err);
-          this.toastr.error('Xóa sản phẩm thất bại');
-        }
-      });
+  openRemoveConfirm(item: CartItem): void {
+    this.itemPendingRemove = item;
+  }
+
+  closeRemoveConfirm(): void {
+    if (!this.removingItem) {
+      this.itemPendingRemove = null;
     }
+  }
+
+  confirmRemoveItem(): void {
+    if (!this.itemPendingRemove || this.removingItem) return;
+
+    this.removingItem = true;
+    this.cartService.removeFromCart(this.itemPendingRemove.id).subscribe({
+      next: () => {
+        this.itemPendingRemove = null;
+        this.removingItem = false;
+        this.toastr.success('Đã xóa sản phẩm khỏi giỏ hàng');
+      },
+      error: (err: any) => {
+        console.error('Error removing item:', err);
+        this.removingItem = false;
+        this.toastr.error('Xóa sản phẩm thất bại');
+      }
+    });
   }
 }

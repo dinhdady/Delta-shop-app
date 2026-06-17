@@ -87,7 +87,7 @@ public class UserAliasController {
     @PostMapping("/me/avatar")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(summary = "Upload user avatar")
-    public ResponseEntity<String> uploadAvatar(
+    public ResponseEntity<UserProfileResponse> uploadAvatar(
             @RequestAttribute("userId") UUID userId,
             @RequestParam("file") MultipartFile file) {
         return userController.uploadAvatar(userId, file);

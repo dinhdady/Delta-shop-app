@@ -6,16 +6,22 @@ import com.hoangdinh.delta_shop_app.dto.request.review.ReviewUpdateRequest;
 import com.hoangdinh.delta_shop_app.dto.response.PageResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewResponse;
 import com.hoangdinh.delta_shop_app.dto.response.review.ReviewStatsResponse;
+import com.hoangdinh.delta_shop_app.dto.response.review.ReviewEligibilityResponse;
 import com.hoangdinh.delta_shop_app.entity.OrderItem;
 import com.hoangdinh.delta_shop_app.entity.Product;
 import com.hoangdinh.delta_shop_app.entity.Review;
+import com.hoangdinh.delta_shop_app.entity.ReviewImage;
+import com.hoangdinh.delta_shop_app.entity.ReviewVote;
 import com.hoangdinh.delta_shop_app.entity.User;
+import com.hoangdinh.delta_shop_app.enums.OrderStatus;
+import com.hoangdinh.delta_shop_app.enums.PaymentStatus;
 import com.hoangdinh.delta_shop_app.enums.ReviewStatus;
 import com.hoangdinh.delta_shop_app.exception.BusinessException;
 import com.hoangdinh.delta_shop_app.exception.ResourceNotFoundException;
 import com.hoangdinh.delta_shop_app.repository.OrderItemRepository;
 import com.hoangdinh.delta_shop_app.repository.ProductRepository;
 import com.hoangdinh.delta_shop_app.repository.ReviewRepository;
+import com.hoangdinh.delta_shop_app.repository.ReviewVoteRepository;
 import com.hoangdinh.delta_shop_app.repository.UserRepository;
 import com.hoangdinh.delta_shop_app.service.CloudinaryService;
 import com.hoangdinh.delta_shop_app.service.ReviewService;
@@ -43,6 +49,7 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final ReviewVoteRepository reviewVoteRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final OrderItemRepository orderItemRepository;
@@ -60,14 +67,31 @@ public class ReviewServiceImpl implements ReviewService {
         OrderItem orderItem = orderItemRepository.findById(request.getOrderItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("OrderItem", "id", request.getOrderItemId()));
 
+        if (orderItem.getOrder().getUser() == null || !orderItem.getOrder().getUser().getId().equals(userId)) {
+            throw new BusinessException("Bạn chỉ có thể đánh giá sản phẩm trong đơn hàng của mình");
+        }
+
+        if (orderItem.getOrder().getPaymentStatus() != PaymentStatus.PAID) {
+            throw new BusinessException("Bạn chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã được thanh toán");
+        }
+
+        if (orderItem.getOrder().getStatus() == OrderStatus.CANCELLED
+                || orderItem.getOrder().getStatus() == OrderStatus.REFUNDED) {
+            throw new BusinessException("Không thể đánh giá sản phẩm trong đơn hàng đã hủy hoặc hoàn tiền");
+        }
+
+        if (orderItem.getProduct() == null || !orderItem.getProduct().getId().equals(request.getProductId())) {
+            throw new BusinessException("Sản phẩm không thuộc đơn hàng đã chọn");
+        }
+
+        if (orderItem.isReviewed() || reviewRepository.existsByOrderItemId(orderItem.getId())) {
+            throw new BusinessException("Sản phẩm trong đơn hàng này đã được đánh giá");
+        }
+
         // Check if user already reviewed this product
         if (reviewRepository.existsByUserIdAndProductId(userId, request.getProductId())) {
             throw new BusinessException("Bạn đã đánh giá sản phẩm này rồi");
         }
-
-        // Check if user purchased this product
-        boolean isVerifiedPurchase = orderItem.getOrder().getUser() != null &&
-                orderItem.getOrder().getUser().getId().equals(userId);
 
         Review review = Review.builder()
                 .user(user)
@@ -76,17 +100,27 @@ public class ReviewServiceImpl implements ReviewService {
                 .rating(request.getRating())
                 .title(request.getTitle())
                 .body(request.getBody())
-                .status(ReviewStatus.PENDING)
-                .isVerifiedPurchase(isVerifiedPurchase)
+                .status(ReviewStatus.APPROVED)
+                .isVerifiedPurchase(true)
                 .build();
 
-        Review saved = reviewRepository.save(review);
-
-        // Upload images if any
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            // Handle image upload logic
-            log.info("Uploading {} images for review {}", request.getImages().size(), saved.getId());
+            for (int index = 0; index < request.getImages().size(); index++) {
+                String imageUrl = request.getImages().get(index);
+                if (imageUrl != null && !imageUrl.isBlank()) {
+                    review.getImages().add(ReviewImage.builder()
+                            .review(review)
+                            .url(imageUrl.trim())
+                            .sortOrder(index)
+                            .build());
+                }
+            }
         }
+
+        Review saved = reviewRepository.save(review);
+        orderItem.setReviewed(true);
+        orderItemRepository.save(orderItem);
+        updateProductRating(product.getId());
 
         log.info("Review created: user {}, product {}", userId, request.getProductId());
 
@@ -103,10 +137,6 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException("Bạn không có quyền sửa đánh giá này");
         }
 
-        if (review.getStatus() == ReviewStatus.APPROVED) {
-            throw new BusinessException("Không thể sửa đánh giá đã được duyệt");
-        }
-
         if (request.getRating() != null) {
             review.setRating(request.getRating());
         }
@@ -118,6 +148,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         Review saved = reviewRepository.save(review);
+        updateProductRating(review.getProduct().getId());
         log.info("Review updated: {}", reviewId);
 
         return mapToResponse(saved);
@@ -141,6 +172,10 @@ public class ReviewServiceImpl implements ReviewService {
         });
 
         reviewRepository.delete(review);
+        if (review.getOrderItem() != null) {
+            review.getOrderItem().setReviewed(false);
+            orderItemRepository.save(review.getOrderItem());
+        }
         log.info("Review deleted: {}", reviewId);
 
         // Update product rating
@@ -153,10 +188,22 @@ public class ReviewServiceImpl implements ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
 
-        // Check if user already voted
-        if (reviewRepository.hasUserVoted(reviewId, userId)) {
+        if (review.getUser().getId().equals(userId)) {
+            throw new BusinessException("Bạn không thể bình chọn đánh giá của chính mình");
+        }
+
+        if (reviewVoteRepository.existsByReviewIdAndUserId(reviewId, userId)) {
             throw new BusinessException("Bạn đã đánh giá hữu ích cho đánh giá này rồi");
         }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        reviewVoteRepository.save(ReviewVote.builder()
+                .review(review)
+                .user(user)
+                .helpful(helpful)
+                .build());
 
         if (helpful) {
             review.setHelpfulCount(review.getHelpfulCount() + 1);
@@ -169,11 +216,11 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
-    public PageResponse<ReviewResponse> getProductReviews(UUID productId, int page, int size, String sortBy) {
+    public PageResponse<ReviewResponse> getProductReviews(UUID productId, UUID userId, int page, int size, String sortBy) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         Page<Review> reviews = reviewRepository.findByProductIdAndStatus(productId, ReviewStatus.APPROVED, pageable);
 
-        return PageResponse.of(reviews.map(this::mapToResponse));
+        return PageResponse.of(reviews.map(review -> mapToResponse(review, userId)));
     }
 
     @Override
@@ -182,6 +229,82 @@ public class ReviewServiceImpl implements ReviewService {
         Page<Review> reviews = reviewRepository.findByUserId(userId, pageable);
 
         return PageResponse.of(reviews.map(this::mapToResponse));
+    }
+
+    @Override
+    public ReviewEligibilityResponse getReviewEligibility(UUID userId, UUID orderItemId) {
+        OrderItem orderItem = orderItemRepository.findById(orderItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("OrderItem", "id", orderItemId));
+
+        if (orderItem.getOrder().getUser() == null || !orderItem.getOrder().getUser().getId().equals(userId)) {
+            throw new BusinessException("Bạn không có quyền đánh giá sản phẩm trong đơn hàng này");
+        }
+
+        Review existingReview = reviewRepository.findByOrderItemId(orderItemId).orElse(null);
+        String reason = null;
+        boolean canReview = true;
+
+        if (existingReview != null || orderItem.isReviewed()) {
+            canReview = false;
+            reason = "Sản phẩm này đã được đánh giá";
+        } else if (orderItem.getProduct() == null) {
+            canReview = false;
+            reason = "Sản phẩm không còn tồn tại";
+        } else if (orderItem.getOrder().getPaymentStatus() != PaymentStatus.PAID) {
+            canReview = false;
+            reason = "Đơn hàng chưa được thanh toán";
+        } else if (orderItem.getOrder().getStatus() == OrderStatus.CANCELLED
+                || orderItem.getOrder().getStatus() == OrderStatus.REFUNDED) {
+            canReview = false;
+            reason = "Đơn hàng đã hủy hoặc hoàn tiền";
+        } else if (reviewRepository.existsByUserIdAndProductId(userId, orderItem.getProduct().getId())) {
+            canReview = false;
+            reason = "Bạn đã đánh giá sản phẩm này rồi";
+        }
+
+        return ReviewEligibilityResponse.builder()
+                .orderItemId(orderItemId)
+                .productId(orderItem.getProduct() != null ? orderItem.getProduct().getId() : null)
+                .canReview(canReview)
+                .reviewed(existingReview != null || orderItem.isReviewed())
+                .reason(reason)
+                .reviewId(existingReview != null ? existingReview.getId() : null)
+                .reviewStatus(existingReview != null ? existingReview.getStatus() : null)
+                .build();
+    }
+
+    @Override
+    public ReviewEligibilityResponse getProductReviewEligibility(UUID userId, UUID productId) {
+        Review existingReview = reviewRepository.findByUserIdAndProductId(userId, productId).orElse(null);
+        if (existingReview != null) {
+            return ReviewEligibilityResponse.builder()
+                    .orderItemId(existingReview.getOrderItem() != null ? existingReview.getOrderItem().getId() : null)
+                    .productId(productId)
+                    .canReview(false)
+                    .reviewed(true)
+                    .reason("Bạn đã đánh giá sản phẩm này")
+                    .reviewId(existingReview.getId())
+                    .reviewStatus(existingReview.getStatus())
+                    .build();
+        }
+
+        List<OrderItem> reviewableItems = orderItemRepository.findReviewableItemsByUserAndProduct(userId, productId);
+        if (reviewableItems.isEmpty()) {
+            return ReviewEligibilityResponse.builder()
+                    .productId(productId)
+                    .canReview(false)
+                    .reviewed(false)
+                    .reason("Chỉ khách hàng đã thanh toán sản phẩm mới có thể đánh giá")
+                    .build();
+        }
+
+        OrderItem orderItem = reviewableItems.get(0);
+        return ReviewEligibilityResponse.builder()
+                .orderItemId(orderItem.getId())
+                .productId(productId)
+                .canReview(true)
+                .reviewed(false)
+                .build();
     }
 
     @Override
@@ -329,6 +452,10 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     private ReviewResponse mapToResponse(Review review) {
+        return mapToResponse(review, null);
+    }
+
+    private ReviewResponse mapToResponse(Review review, UUID userId) {
         return ReviewResponse.builder()
                 .id(review.getId())
                 .productId(review.getProduct().getId())
@@ -337,6 +464,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .userName(review.getUser().getFullName())
                 .userAvatar(review.getUser().getAvatarUrl())
                 .rating(review.getRating())
+                .status(review.getStatus())
                 .title(review.getTitle())
                 .body(review.getBody())
                 .images(review.getImages() != null ?
@@ -345,6 +473,7 @@ public class ReviewServiceImpl implements ReviewService {
                                 .collect(Collectors.toList()) : null)
                 .verifiedPurchase(review.isVerifiedPurchase())
                 .helpfulCount(review.getHelpfulCount())
+                .votedHelpful(userId != null && reviewVoteRepository.existsByReviewIdAndUserId(review.getId(), userId))
                 .adminReply(review.getAdminReply())
                 .adminReplyAt(review.getAdminReplyAt())
                 .createdAt(review.getCreatedAt())

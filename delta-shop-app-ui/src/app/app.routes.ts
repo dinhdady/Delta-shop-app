@@ -38,6 +38,13 @@ export const routes: Routes = [
     title: 'Đơn hàng của tôi - Delta Sports'
   },
   {
+    path: 'wishlist',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/wishlist/wishlist.component').then(m => m.WishlistComponent),
+    title: 'Yêu thích - Delta Sports'
+  },
+
+  {
     path: 'payment-result',
     loadComponent: () => import('./features/payment-result/payment-result.component').then(m => m.PaymentResultComponent),
     title: 'Kết quả thanh toán - Delta Sports'

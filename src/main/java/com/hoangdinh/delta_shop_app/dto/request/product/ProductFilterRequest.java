@@ -29,8 +29,11 @@ public class ProductFilterRequest {
     private Boolean inStockOnly;
     private String sortBy;
     private String sortDir;
+    @Builder.Default
     private int page = 0;
+    @Builder.Default
     private int size = 12;
+    @Builder.Default
     private boolean publicOnly = true;
     private ProductStatus status;
 }

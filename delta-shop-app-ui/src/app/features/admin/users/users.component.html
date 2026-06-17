@@ -11,8 +11,14 @@
       <i class="bi bi-search"></i>
       <input type="text" [(ngModel)]="searchKeyword" (keyup.enter)="onSearch()" placeholder="Tìm theo tên, email, số điện thoại...">
     </div>
-    <button class="btn btn-outline" (click)="onSearch()">Tìm kiếm</button>
+    <div class="filter-group">
+      <button class="btn btn-outline" (click)="onSearch()">Lọc</button>
+    </div>
   </div>
+</div>
+
+<div class="admin-alert error" *ngIf="errorMessage()">
+  {{ errorMessage() }}
 </div>
 
 <div class="admin-card">
@@ -43,7 +49,7 @@
           <td>{{ user.phone || 'N/A' }}</td>
           <td>
             <select [value]="user.role" (change)="changeRole(user, $event)" class="role-select">
-              <option value="USER">User</option>
+              <option value="CUSTOMER">Customer</option>
               <option value="ADMIN">Admin</option>
               <option value="SUPER_ADMIN">Super Admin</option>
             </select>
@@ -55,8 +61,16 @@
           </td>
           <td>
             <div class="action-buttons">
-              <button class="btn-icon" title="Chi tiết">
+              <button class="btn-icon" (click)="openUserDetail(user)" [disabled]="loadingUserDetail()" title="Chi tiết">
                 <i class="bi bi-info-circle"></i>
+              </button>
+              <button
+                class="delete-account-button"
+                [disabled]="deletingUserId() === user.id"
+                (click)="openDeleteConfirm(user)"
+                title="Xóa tài khoản">
+                <i class="bi bi-trash"></i>
+                <span>Xóa</span>
               </button>
             </div>
           </td>
@@ -66,5 +80,61 @@
         </tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<div class="confirm-backdrop" *ngIf="selectedUser()" (click)="closeUserDetail()">
+  <div class="confirm-dialog" (click)="$event.stopPropagation()">
+    <div class="confirm-header">
+      <div class="avatar">{{ getInitials(selectedUser()?.fullName) }}</div>
+      <div>
+        <h2>{{ selectedUser()?.fullName || 'Người dùng' }}</h2>
+        <p>{{ selectedUser()?.email }}</p>
+      </div>
+    </div>
+    <div class="confirm-body user-detail-grid">
+      <span>Số điện thoại</span><strong>{{ selectedUser()?.phone || 'Chưa cập nhật' }}</strong>
+      <span>Vai trò</span><strong>{{ selectedUser()?.role }}</strong>
+      <span>Trạng thái</span><strong>{{ selectedUser()?.status }}</strong>
+      <span>Điểm tích lũy</span><strong>{{ selectedUser()?.loyaltyPoints || 0 }}</strong>
+      <span>Ngày tham gia</span><strong>{{ selectedUser()?.createdAt | date:'dd/MM/yyyy HH:mm' }}</strong>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn-cancel" type="button" (click)="closeUserDetail()">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-backdrop" *ngIf="userPendingDelete()" (click)="closeDeleteConfirm()">
+  <div class="confirm-dialog" (click)="$event.stopPropagation()">
+    <div class="confirm-header">
+      <div class="confirm-icon">
+        <i class="bi bi-exclamation-triangle"></i>
+      </div>
+      <div>
+        <h2>Xác nhận xóa tài khoản</h2>
+        <p>Hành động này sẽ ẩn tài khoản khỏi danh sách quản lý.</p>
+      </div>
+    </div>
+
+    <div class="confirm-body">
+      <div class="delete-user-summary">
+        <div class="avatar">{{ getInitials(userPendingDelete()?.fullName) }}</div>
+        <div class="info">
+          <strong>{{ userPendingDelete()?.fullName || 'Người dùng' }}</strong>
+          <small>{{ userPendingDelete()?.email }}</small>
+        </div>
+      </div>
+      <p class="delete-note">
+        Email và số điện thoại của tài khoản này sẽ được giải phóng để bạn có thể đăng ký lại khi check test.
+      </p>
+    </div>
+
+    <div class="confirm-actions">
+      <button class="btn-cancel" type="button" [disabled]="deletingUserId()" (click)="closeDeleteConfirm()">Hủy</button>
+      <button class="btn-delete" type="button" [disabled]="deletingUserId()" (click)="confirmDeleteUser()">
+        {{ deletingUserId() ? 'Đang xóa...' : 'Xóa tài khoản' }}
+      </button>
+    </div>
   </div>
 </div>

@@ -81,6 +81,8 @@ import { LucideAngularModule, Facebook, Instagram, Twitter, MapPin, Phone, Mail 
       background-color: var(--color-dark);
       color: var(--color-gray);
       padding-top: 4rem;
+      position: relative;
+      z-index: 950;
       
       h4 {
         color: var(--color-light);

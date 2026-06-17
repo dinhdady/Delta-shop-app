@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 export interface CreateOrderItemRequest {
@@ -42,12 +42,14 @@ export interface OrderDetail {
   trackingNumber?: string;
   items?: Array<{
     id: string;
+    productId: string;
     productName: string;
     variantName?: string;
     productImage?: string;
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    reviewed: boolean;
   }>;
 }
 
@@ -91,8 +93,10 @@ export class OrderService {
     return this.http.get<OrderDetail>(`${this.apiUrl}/me/${id}`);
   }
 
-  getMyOrders(page = 0, size = 10): Observable<PageResponse<OrderSummary>> {
-    return this.http.get<PageResponse<OrderSummary>>(`${this.apiUrl}/me?page=${page}&size=${size}`);
+  getMyOrders(page = 0, size = 10, query?: string): Observable<PageResponse<OrderSummary>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (query) params = params.set('query', query);
+    return this.http.get<PageResponse<OrderSummary>>(`${this.apiUrl}/me`, { params });
   }
 
   cancelOrder(orderId: string, reason: string): Observable<OrderDetail> {

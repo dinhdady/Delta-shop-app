@@ -24,6 +24,19 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     @Query("SELECT oi FROM OrderItem oi WHERE oi.order.user.id = :userId AND oi.isReviewed = false")
     List<OrderItem> findUnreviewedItemsByUser(@Param("userId") UUID userId);
 
+    @Query("""
+            SELECT oi FROM OrderItem oi
+            WHERE oi.order.user.id = :userId
+              AND oi.product.id = :productId
+              AND oi.order.paymentStatus = 'PAID'
+              AND oi.order.status NOT IN ('CANCELLED', 'REFUNDED')
+              AND oi.isReviewed = false
+            ORDER BY oi.order.createdAt DESC
+            """)
+    List<OrderItem> findReviewableItemsByUserAndProduct(
+            @Param("userId") UUID userId,
+            @Param("productId") UUID productId);
+
     @Modifying
     @Transactional
     @Query("UPDATE OrderItem oi SET oi.isReviewed = true WHERE oi.id = :id")

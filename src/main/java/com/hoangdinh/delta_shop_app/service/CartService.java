@@ -20,6 +20,9 @@ public interface CartService {
     // Guest cart operations
     CartResponse getGuestCart(String sessionId);
     CartResponse addToGuestCart(String sessionId, AddToCartRequest request);
+    CartResponse updateGuestCartItem(String sessionId, UpdateCartItemRequest request);
+    CartResponse removeGuestCartItem(String sessionId, UUID cartItemId);
+    void clearGuestCart(String sessionId);
     CartResponse mergeGuestCart(UUID userId, String sessionId);
 
     // Validation

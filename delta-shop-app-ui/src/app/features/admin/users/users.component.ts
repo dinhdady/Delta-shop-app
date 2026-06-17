@@ -16,6 +16,11 @@ export class UsersComponent implements OnInit {
   users = signal<any[]>([]);
   totalElements = signal(0);
   currentPage = signal(0);
+  deletingUserId = signal<string | null>(null);
+  userPendingDelete = signal<any | null>(null);
+  selectedUser = signal<any | null>(null);
+  loadingUserDetail = signal(false);
+  errorMessage = signal('');
   pageSize = 10;
   
   searchKeyword = '';
@@ -26,9 +31,16 @@ export class UsersComponent implements OnInit {
 
   loadUsers() {
     this.userService.getUsers(this.currentPage(), this.pageSize, undefined, undefined, this.searchKeyword)
-      .subscribe(res => {
-        this.users.set(res.content);
-        this.totalElements.set(res.totalElements);
+      .subscribe({
+        next: (res) => {
+          this.users.set(res.content);
+          this.totalElements.set(res.totalElements);
+          this.errorMessage.set('');
+        },
+        error: (err) => {
+          console.error('Error loading users:', err);
+          this.errorMessage.set('Không thể tải danh sách người dùng.');
+        }
       });
   }
 
@@ -57,6 +69,63 @@ export class UsersComponent implements OnInit {
     const newRole = event.target.value;
     this.userService.updateUserRole(user.id, newRole).subscribe(() => {
       this.loadUsers();
+    });
+  }
+
+  openUserDetail(user: any) {
+    this.loadingUserDetail.set(true);
+    this.errorMessage.set('');
+    this.userService.getUserById(user.id).subscribe({
+      next: detail => {
+        this.selectedUser.set(detail);
+        this.loadingUserDetail.set(false);
+      },
+      error: err => {
+        console.error('Error loading user detail:', err);
+        this.errorMessage.set('Không thể tải chi tiết người dùng.');
+        this.loadingUserDetail.set(false);
+      }
+    });
+  }
+
+  closeUserDetail() {
+    this.selectedUser.set(null);
+  }
+
+  openDeleteConfirm(user: any) {
+    this.errorMessage.set('');
+    this.userPendingDelete.set(user);
+  }
+
+  closeDeleteConfirm() {
+    if (this.deletingUserId()) {
+      return;
+    }
+
+    this.userPendingDelete.set(null);
+  }
+
+  confirmDeleteUser() {
+    const user = this.userPendingDelete();
+    if (!user) {
+      return;
+    }
+
+    this.deletingUserId.set(user.id);
+    this.errorMessage.set('');
+
+    this.userService.deleteUser(user.id).subscribe({
+      next: () => {
+        this.users.update(users => users.filter(item => item.id !== user.id));
+        this.totalElements.update(total => Math.max(0, total - 1));
+        this.deletingUserId.set(null);
+        this.userPendingDelete.set(null);
+      },
+      error: (err) => {
+        console.error('Error deleting user:', err);
+        this.errorMessage.set(err.error?.message || 'Không thể xóa tài khoản này.');
+        this.deletingUserId.set(null);
+      }
     });
   }
 }

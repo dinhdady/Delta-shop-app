@@ -1,12 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { OrderDetail, OrderService, OrderSummary, PageResponse } from '../../core/services/order.service';
 import { ToastrService } from 'ngx-toastr';
+import { FormsModule } from '@angular/forms';
+import { ReviewService } from '../../core/services/review.service';
 
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <section class="orders-page">
       <div class="page-header">
@@ -16,7 +19,30 @@ import { ToastrService } from 'ngx-toastr';
         </div>
       </div>
 
-      <div class="container content">
+      <div class="container">
+        <div class="account-wrapper">
+          <main class="orders-content">
+            <div class="content-header">
+              <div>
+                <h2>Lịch sử đơn hàng</h2>
+                <p>Quản lý và theo dõi các đơn hàng của bạn</p>
+              </div>
+            </div>
+
+        <div class="filter-card">
+          <div class="filters-row">
+            <div class="search-box">
+              <i class="bi bi-search"></i>
+              <input
+                [(ngModel)]="searchQuery"
+                type="text"
+                (keyup.enter)="onSearch()"
+                placeholder="Tìm kiếm mã đơn hàng...">
+            </div>
+            <button class="btn-filter" (click)="onSearch()">Lọc</button>
+          </div>
+        </div>
+
         <div class="toolbar">
           <div class="summary">
             <strong>{{ totalElements() }}</strong> đơn hàng
@@ -65,6 +91,8 @@ import { ToastrService } from 'ngx-toastr';
             </div>
           </article>
         </div>
+          </main>
+        </div>
       </div>
 
       <div class="modal-backdrop" *ngIf="selectedOrder()" (click)="closeDetails()">
@@ -100,7 +128,19 @@ import { ToastrService } from 'ngx-toastr';
                 <div class="muted" *ngIf="item.variantName">{{ item.variantName }}</div>
               </div>
               <div class="qty">x{{ item.quantity }}</div>
-              <div class="price">{{ formatCurrency(item.totalPrice) }}</div>
+              <div class="price price-action-col">
+                <div>{{ formatCurrency(item.totalPrice) }}</div>
+                <button 
+                  *ngIf="canReviewOrder(selectedOrder()) && !item.reviewed"
+                  class="btn-review-item"
+                  (click)="openReviewModal(item)">
+                  Đánh giá
+                </button>
+                <span *ngIf="canReviewOrder(selectedOrder()) && item.reviewed" class="reviewed-label">
+                  <i class="bi bi-check-circle-fill"></i>
+                  Đã đánh giá
+                </span>
+              </div>
             </div>
           </div>
 
@@ -110,6 +150,75 @@ import { ToastrService } from 'ngx-toastr';
             <div><span>Phí vận chuyển</span><strong>{{ formatCurrency(order.shippingFee || 0) }}</strong></div>
             <div class="grand-total"><span>Tổng cộng</span><strong>{{ formatCurrency(order.totalAmount) }}</strong></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Write Review Modal -->
+      <div class="modal-backdrop review-modal" *ngIf="reviewingItem" (click)="closeReviewModal()">
+        <div class="modal-panel review-panel" (click)="$event.stopPropagation()">
+          <div class="modal-head">
+            <div>
+              <h2>Đánh giá sản phẩm</h2>
+              <p>{{ reviewingItem.productName }}</p>
+            </div>
+            <button class="close-btn" (click)="closeReviewModal()">x</button>
+          </div>
+
+          <form (ngSubmit)="submitReview()" class="review-form">
+            <!-- Star Selection -->
+            <div class="form-group-star">
+              <label class="form-label">Chất lượng sản phẩm *</label>
+              <div class="star-rating">
+                <span 
+                  *ngFor="let star of [1,2,3,4,5]" 
+                  class="star-select" 
+                  [class.active]="star <= reviewRating"
+                  (click)="setReviewRating(star)">
+                  ★
+                </span>
+              </div>
+            </div>
+
+            <!-- Title -->
+            <div class="form-group">
+              <label class="form-label">Tiêu đề đánh giá</label>
+              <input 
+                type="text" 
+                name="title" 
+                [(ngModel)]="reviewTitle" 
+                class="form-control" 
+                placeholder="Nhập tiêu đề đánh giá ngắn gọn">
+            </div>
+
+            <!-- Body -->
+            <div class="form-group">
+              <label class="form-label">Nhận xét chi tiết *</label>
+              <textarea 
+                name="body" 
+                [(ngModel)]="reviewBody" 
+                class="form-control" 
+                rows="4" 
+                placeholder="Hãy chia sẻ nhận xét của bạn về sản phẩm này..."></textarea>
+            </div>
+
+            <!-- Image Link -->
+            <div class="form-group">
+              <label class="form-label">Đường dẫn hình ảnh (tùy chọn)</label>
+              <input 
+                type="text" 
+                name="imageUrl" 
+                [(ngModel)]="reviewImageUrl" 
+                class="form-control" 
+                placeholder="Nhập URL hình ảnh nếu muốn chia sẻ hình ảnh thực tế">
+            </div>
+
+            <div class="form-actions review-actions-row">
+              <button type="submit" class="btn-primary" [disabled]="submittingReview || reviewRating === 0 || !reviewBody.trim()">
+                {{ submittingReview ? 'Đang gửi...' : 'Gửi đánh giá' }}
+              </button>
+              <button type="button" class="btn-secondary" (click)="closeReviewModal()">Hủy</button>
+            </div>
+          </form>
         </div>
       </div>
     </section>
@@ -204,6 +313,64 @@ import { ToastrService } from 'ngx-toastr';
     }
 
     /* ========== TOOLBAR ========== */
+    .filter-card {
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      background: white;
+      border: 1px solid var(--color-gray-200);
+      border-radius: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .filters-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-gray-500);
+      pointer-events: none;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      border: 1px solid var(--color-gray-300);
+      border-radius: 8px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-box input:focus {
+      border-color: var(--color-orange-500);
+    }
+
+    .btn-filter {
+      padding: 0.75rem 1.5rem;
+      border: 1px solid var(--color-gray-300);
+      border-radius: 8px;
+      background: white;
+      color: var(--color-gray-700);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-filter:hover {
+      border-color: var(--color-orange-500);
+      color: var(--color-orange-600);
+    }
+
     .toolbar {
       display: flex;
       justify-content: space-between;
@@ -696,6 +863,10 @@ import { ToastrService } from 'ngx-toastr';
         flex-direction: column;
         align-items: stretch;
       }
+      .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
       .order-head {
         flex-direction: column;
       }
@@ -722,11 +893,279 @@ import { ToastrService } from 'ngx-toastr';
         text-align: left;
       }
     }
+
+    /* Review Button & Modal Styles */
+    .price-action-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .btn-review-item {
+      background: #cd4631;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 4px;
+    }
+    .btn-review-item:hover {
+      background: #b83a26;
+      transform: translateY(-1px);
+    }
+
+    .reviewed-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 8px;
+      color: #15803d;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .review-panel {
+      width: min(550px, 100%) !important;
+    }
+    .review-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .form-group-star {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #333;
+    }
+    .star-rating {
+      display: flex;
+      gap: 8px;
+      font-size: 28px;
+      color: #ddd;
+    }
+    .star-select {
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .star-select:hover,
+    .star-select.active {
+      color: #ffc107;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-control {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #cd4631;
+      box-shadow: 0 0 0 2px rgba(205, 70, 49, 0.1);
+    }
+    .review-actions-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    /* ========== PROFILE-ALIGNED LAYOUT ========== */
+    :host {
+      --color-orange-50: #fff5f6;
+      --color-orange-100: #ffe4e8;
+      --color-orange-200: #fecdd5;
+      --color-orange-300: #fda4b2;
+      --color-orange-400: #e85a70;
+      --color-orange-500: #c41e3a;
+      --color-orange-600: #a71630;
+      --color-orange-700: #8b0000;
+      --color-orange-800: #710018;
+      --color-orange-900: #590012;
+    }
+
+    .orders-page {
+      background: #f5f5f5;
+    }
+
+    .page-header {
+      padding: 60px 0;
+      text-align: center;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
+      border-bottom: 0;
+    }
+
+    .page-header::before {
+      display: none;
+    }
+
+    .page-header h1 {
+      margin: 0 0 16px;
+      color: #fff;
+      font-size: 48px;
+      letter-spacing: 0;
+      background: none;
+      -webkit-text-fill-color: initial;
+    }
+
+    .page-header p {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 18px;
+    }
+
+    .container {
+      max-width: 1200px;
+      padding: 0 20px;
+    }
+
+    .account-wrapper {
+      display: block;
+      padding: 60px 0;
+    }
+
+    .orders-content {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .orders-content {
+      min-width: 0;
+      padding: 30px;
+    }
+
+    .content-header {
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #c41e3a;
+    }
+
+    .content-header h2 {
+      margin: 0 0 6px;
+      color: #333;
+      font-size: 24px;
+      font-weight: 600;
+      text-transform: none;
+    }
+
+    .content-header p {
+      margin: 0;
+      color: #777;
+      font-size: 14px;
+    }
+
+    .filter-card {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .search-box input {
+      border-radius: 6px;
+    }
+
+    .search-box input:focus {
+      border-color: #c41e3a;
+      box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+    }
+
+    .btn-filter,
+    .btn-page {
+      border-radius: 6px;
+    }
+
+    .summary {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .summary strong {
+      color: #c41e3a;
+    }
+
+    .order-card {
+      border-color: #e0e0e0;
+      border-radius: 8px;
+      box-shadow: none;
+    }
+
+    .order-card:hover {
+      border-color: #c41e3a;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .btn-primary {
+      border-radius: 6px;
+      background: #c41e3a;
+      box-shadow: none;
+    }
+
+    .btn-primary:hover {
+      background: #8b0000;
+    }
+
+    .btn-secondary {
+      border-radius: 6px;
+    }
+
+    .modal-panel,
+    .detail-block,
+    .items,
+    .totals {
+      border-radius: 12px;
+    }
+
+    @media (max-width: 992px) {
+      .account-wrapper {
+        padding: 40px 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-header {
+        padding: 40px 0;
+      }
+
+      .page-header h1 {
+        font-size: 32px;
+      }
+
+      .page-header p {
+        font-size: 15px;
+      }
+
+      .account-wrapper {
+        padding: 24px 0;
+      }
+
+      .orders-content {
+        padding: 20px;
+      }
+    }
   `]
 })
 export class OrdersComponent implements OnInit {
   private orderService = inject(OrderService);
   private toastr = inject(ToastrService);
+  private route = inject(ActivatedRoute);
+  private reviewService = inject(ReviewService);
 
   orders = signal<OrderSummary[]>([]);
   selectedOrder = signal<OrderDetail | null>(null);
@@ -734,14 +1173,31 @@ export class OrdersComponent implements OnInit {
   totalPages = signal(0);
   totalElements = signal(0);
   loading = signal(false);
+  searchQuery = '';
+
+  // Review states
+  reviewingItem: any = null;
+  reviewRating = 5;
+  reviewTitle = '';
+  reviewBody = '';
+  reviewImageUrl = '';
+  submittingReview = false;
 
   ngOnInit(): void {
     this.loadOrders();
+    
+    // Auto-focus on an order if orderId query parameter is provided
+    this.route.queryParams.subscribe(params => {
+      const orderId = params['orderId'];
+      if (orderId) {
+        this.openDetails(orderId);
+      }
+    });
   }
 
   loadOrders(): void {
     this.loading.set(true);
-    this.orderService.getMyOrders(this.currentPage(), 10).subscribe({
+    this.orderService.getMyOrders(this.currentPage(), 10, this.searchQuery.trim() || undefined).subscribe({
       next: (response: PageResponse<OrderSummary>) => {
         this.orders.set(response.content);
         this.totalPages.set(response.totalPages);
@@ -753,6 +1209,11 @@ export class OrdersComponent implements OnInit {
         this.toastr.error('Khong the tai danh sach don hang');
       }
     });
+  }
+
+  onSearch(): void {
+    this.currentPage.set(0);
+    this.loadOrders();
   }
 
   changePage(page: number): void {
@@ -829,5 +1290,90 @@ export class OrdersComponent implements OnInit {
 
   formatCurrency(value: number): string {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+  }
+
+  openReviewModal(item: any): void {
+    if (!this.canReviewOrder(this.selectedOrder()) || item.reviewed) {
+      return;
+    }
+
+    this.reviewService.getReviewEligibility(item.id).subscribe({
+      next: eligibility => {
+        item.reviewed = eligibility.reviewed;
+        if (!eligibility.canReview || !eligibility.productId) {
+          this.toastr.info(eligibility.reason || 'Sản phẩm này chưa đủ điều kiện đánh giá');
+          return;
+        }
+
+        this.reviewingItem = { ...item, productId: eligibility.productId };
+        this.reviewRating = 5;
+        this.reviewTitle = '';
+        this.reviewBody = '';
+        this.reviewImageUrl = '';
+      },
+      error: err => this.toastr.error(this.getReviewErrorMessage(err))
+    });
+  }
+
+  closeReviewModal(): void {
+    this.reviewingItem = null;
+  }
+
+  setReviewRating(rating: number): void {
+    this.reviewRating = rating;
+  }
+
+  canReviewOrder(order: OrderDetail | null): boolean {
+    return !!order
+      && order.paymentStatus === 'PAID'
+      && order.status !== 'CANCELLED'
+      && order.status !== 'REFUNDED';
+  }
+
+  submitReview(): void {
+    if (!this.reviewingItem || !this.selectedOrder()) return;
+
+    this.submittingReview = true;
+    const imagesList: string[] = [];
+    if (this.reviewImageUrl.trim()) {
+      imagesList.push(this.reviewImageUrl.trim());
+    }
+
+    const payload = {
+      productId: this.reviewingItem.productId,
+      orderItemId: this.reviewingItem.id,
+      rating: this.reviewRating,
+      title: this.reviewTitle.trim(),
+      body: this.reviewBody.trim(),
+      images: imagesList
+    };
+
+    this.reviewService.createReview(payload).subscribe({
+      next: () => {
+        this.toastr.success('Cảm ơn bạn đã gửi đánh giá sản phẩm!');
+        this.submittingReview = false;
+        this.closeReviewModal();
+        // Reload details
+        const orderId = this.selectedOrder()?.id;
+        if (orderId) {
+          this.openDetails(orderId);
+        }
+      },
+      error: (err) => {
+        this.submittingReview = false;
+        this.toastr.error(this.getReviewErrorMessage(err));
+      }
+    });
+  }
+
+  private getReviewErrorMessage(error: any): string {
+    if (error?.error?.message) {
+      return error.error.message;
+    }
+    const validationErrors = error?.error?.errors;
+    if (validationErrors) {
+      return Object.values(validationErrors)[0] as string;
+    }
+    return 'Không thể kết nối tới hệ thống đánh giá';
   }
 }

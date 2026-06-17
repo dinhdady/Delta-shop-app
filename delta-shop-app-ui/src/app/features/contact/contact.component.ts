@@ -571,6 +571,9 @@ interface ContactForm {
 
    /* Responsive */
    @media (max-width: 768px) {
+     .page-header {
+       padding: 40px 0;
+     }
      .page-header h1 {
        font-size: 32px;
      }

@@ -5,6 +5,10 @@ import lombok.Data;
 
 @Data
 public class VerifyEmailRequest {
-    @NotBlank(message = "Token không được để trống")
-    private String token;
+    @NotBlank(message = "Email không được để trống")
+    @jakarta.validation.constraints.Email(message = "Email không hợp lệ")
+    private String email;
+
+    @NotBlank(message = "Mã OTP không được để trống")
+    private String otp;
 }

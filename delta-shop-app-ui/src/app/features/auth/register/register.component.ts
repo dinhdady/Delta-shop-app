@@ -179,8 +179,8 @@ export class RegisterComponent implements OnInit {
       next: (response: any) => {
         console.log('Register success:', response);
         this.isLoading = false;
-        this.router.navigate(['/auth/login'], {
-          queryParams: { registered: 'success' }
+        this.router.navigate(['/auth/verify-email'], {
+          queryParams: { email: formValue.email }
         });
       },
       error: (error: any) => {

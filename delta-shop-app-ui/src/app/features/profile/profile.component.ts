@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
+import { AuthService } from '../../core/services/auth.service';
 
 // Interfaces
 interface UserProfileResponse {
@@ -15,7 +16,7 @@ interface UserProfileResponse {
   firstName: string;
   lastName: string;
   fullName: string;
-  avatarUrl: string;
+  avatarUrl: string | null;
   dateOfBirth: string;
   role: string;
   status: string;
@@ -98,25 +99,35 @@ interface AddAddressRequest {
               <div class="avatar-section">
                 <div class="avatar-wrapper">
                   <img
-                    *ngIf="profile?.avatarUrl"
-                    [src]="profile?.avatarUrl"
+                    *ngIf="avatarPreviewUrl || profile?.avatarUrl"
+                    [src]="avatarPreviewUrl || profile?.avatarUrl"
                     [alt]="profile?.fullName || 'Avatar'"
                     class="avatar"
+                    (error)="handleAvatarError()"
                   >
-                  <div *ngIf="!profile?.avatarUrl" class="avatar-placeholder">
+                  <div *ngIf="!avatarPreviewUrl && !profile?.avatarUrl" class="avatar-placeholder">
                     <i class="fas fa-user"></i>
                   </div>
-                  <button class="avatar-edit-btn" (click)="openAvatarUpload()">
+                  <div class="avatar-uploading" *ngIf="uploadingAvatar">
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </div>
+                  <button type="button" class="avatar-edit-btn" title="Thay ảnh đại diện"
+                    (click)="avatarInput.click()" [disabled]="uploadingAvatar">
                     <i class="fas fa-camera"></i>
                   </button>
                   <input
                     type="file"
                     #avatarInput
-                    accept="image/*"
+                    id="avatarInput"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     style="display: none"
                     (change)="uploadAvatar($event)"
                   >
                 </div>
+                <button type="button" class="avatar-delete-btn" *ngIf="profile?.avatarUrl"
+                  (click)="deleteAvatar()" [disabled]="uploadingAvatar">
+                  Xóa ảnh đại diện
+                </button>
               </div>
               <h3 class="user-name">{{ profile?.fullName || 'Chưa cập nhật' }}</h3>
               <p class="user-email">{{ profile?.email }}</p>
@@ -555,6 +566,33 @@ interface AddAddressRequest {
     .avatar-edit-btn:hover {
       background: #8B0000;
       transform: scale(1.1);
+    }
+    .avatar-edit-btn:disabled, .avatar-delete-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .avatar-uploading {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 24px;
+    }
+    .avatar-delete-btn {
+      margin-top: 10px;
+      border: none;
+      background: transparent;
+      color: #C41E3A;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .avatar-delete-btn:hover {
+      text-decoration: underline;
     }
     .user-name {
       font-size: 18px;
@@ -1039,6 +1077,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private toastr = inject(ToastrService);
   private router = inject(Router);
+  private authService = inject(AuthService);
   private destroy$ = new Subject<void>();
   private apiUrl = 'http://localhost:8080/api';
 
@@ -1047,6 +1086,8 @@ export class ProfileComponent implements OnInit, OnDestroy {
   saving = false;
   isEditing = false;
   changingPassword = false;
+  uploadingAvatar = false;
+  avatarPreviewUrl: string | null = null;
 
   profile: UserProfileResponse | null = null;
   addresses: UserAddressResponse[] = [];
@@ -1119,6 +1160,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           this.profile = res;
+          this.authService.updateCurrentUserAvatar(res.avatarUrl);
           this.loading = false;
           this.editForm = {
             firstName: res.firstName || '',
@@ -1358,19 +1400,16 @@ console.log('Password validation:', {
 
   // ========== AVATAR METHODS ==========
 
-  openAvatarUpload(): void {
-    const input = document.querySelector('#avatarInput') as HTMLInputElement;
-    if (input) input.click();
-  }
-
   uploadAvatar(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
 
     const file = input.files[0];
+    input.value = '';
 
-    if (!file.type.startsWith('image/')) {
-      this.toastr.error('Vui lòng chọn file ảnh');
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      this.toastr.error('Chỉ hỗ trợ ảnh JPEG, PNG, WEBP hoặc GIF');
       return;
     }
 
@@ -1379,24 +1418,61 @@ console.log('Password validation:', {
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => this.avatarPreviewUrl = reader.result as string;
+    reader.readAsDataURL(file);
+    this.uploadingAvatar = true;
+
     const formData = new FormData();
     formData.append('file', file);
 
-    this.http.post<string>(`${this.apiUrl}/users/me/avatar`, formData, {
+    this.http.post<UserProfileResponse>(`${this.apiUrl}/users/me/avatar`, formData, {
       headers: this.getAuthHeaders()
     }).pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (avatarUrl) => {
-          if (this.profile) {
-            this.profile.avatarUrl = avatarUrl;
-          }
+        next: (profile) => {
+          this.profile = profile;
+          this.avatarPreviewUrl = null;
+          this.uploadingAvatar = false;
+          this.authService.updateCurrentUserAvatar(profile.avatarUrl);
           this.toastr.success('Cập nhật ảnh đại diện thành công');
         },
         error: (error) => {
+          this.avatarPreviewUrl = null;
+          this.uploadingAvatar = false;
           console.error('Error uploading avatar:', error);
-          this.toastr.error('Upload ảnh thất bại');
+          this.toastr.error(error.error?.message || 'Upload ảnh thất bại');
         }
       });
+  }
+
+  deleteAvatar(): void {
+    if (!this.profile?.avatarUrl || this.uploadingAvatar || !confirm('Bạn có chắc muốn xóa ảnh đại diện?')) {
+      return;
+    }
+
+    this.uploadingAvatar = true;
+    this.http.delete<void>(`${this.apiUrl}/users/me/avatar`, {
+      headers: this.getAuthHeaders()
+    }).pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          if (this.profile) this.profile.avatarUrl = null;
+          this.avatarPreviewUrl = null;
+          this.uploadingAvatar = false;
+          this.authService.updateCurrentUserAvatar(null);
+          this.toastr.success('Đã xóa ảnh đại diện');
+        },
+        error: error => {
+          this.uploadingAvatar = false;
+          this.toastr.error(error.error?.message || 'Không thể xóa ảnh đại diện');
+        }
+      });
+  }
+
+  handleAvatarError(): void {
+    this.avatarPreviewUrl = null;
+    if (this.profile) this.profile.avatarUrl = null;
   }
 
   // ========== ADDRESS METHODS ==========

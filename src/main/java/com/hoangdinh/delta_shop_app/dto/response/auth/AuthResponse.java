@@ -16,6 +16,7 @@ public class AuthResponse {
     private UUID userId;
     private String email;
     private String fullName;
+    private String avatarUrl;
     private String role;
     private boolean emailVerified;
 
@@ -35,6 +36,7 @@ public class AuthResponse {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.isEmailVerified())
                 .success(true)
@@ -49,6 +51,7 @@ public class AuthResponse {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole() != null ? user.getRole().name() : null)
                 .emailVerified(user.isEmailVerified())
                 .success(true)

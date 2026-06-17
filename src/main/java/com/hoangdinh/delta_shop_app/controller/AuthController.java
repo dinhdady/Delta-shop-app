@@ -62,10 +62,15 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login user")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         String ipAddress = httpRequest.getRemoteAddr();
         String userAgent = httpRequest.getHeader("User-Agent");
-        return ResponseEntity.ok(authService.login(request, ipAddress, userAgent));
+        try {
+            return ResponseEntity.ok(authService.login(request, ipAddress, userAgent));
+        } catch (BusinessException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", e.getMessage()));
+        }
     }
 
     @PostMapping("/refresh")
@@ -83,9 +88,9 @@ public class AuthController {
     }
 
     @PostMapping("/verify-email")
-    @Operation(summary = "Verify email with token")
+    @Operation(summary = "Verify email with OTP")
     public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        authService.verifyEmail(request.getToken());
+        authService.verifyEmail(request);
         return ResponseEntity.ok().build();
     }
 

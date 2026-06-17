@@ -43,7 +43,7 @@ public interface AuthService {
      * Verify user email with token
      * @param token verification token
      */
-    void verifyEmail(String token);
+    void verifyEmail(VerifyEmailRequest request);
 
     /**
      * Request password reset email

@@ -81,6 +81,96 @@
   </div>
 </div>
 
+<section class="reports-grid">
+  <div class="admin-card sales-report">
+    <div class="card-header">
+      <div>
+        <h2>{{ getSalesChartTitle() }}</h2>
+        <p>{{ getSalesChartDescription() }}</p>
+      </div>
+      <span class="report-total">{{ getSalesChartTotal() | currency:'VND':'symbol':'1.0-0' }}</span>
+    </div>
+
+    <div class="sales-chart" *ngIf="getSalesItems().length; else noSalesData">
+      <div class="sales-column" *ngFor="let item of getSalesItems()">
+        <span class="chart-value">{{ formatCompactCurrency(item.value) }}</span>
+        <div class="bar-track">
+          <div class="sales-bar" [style.height.%]="getBarHeight(item.value, salesChart())"></div>
+        </div>
+        <span class="chart-label">{{ formatShortDate(item.label) }}</span>
+      </div>
+    </div>
+    <ng-template #noSalesData><div class="empty-chart">Chưa có dữ liệu doanh số.</div></ng-template>
+  </div>
+
+  <div class="admin-card status-report">
+    <div class="card-header">
+      <div>
+        <h2>Trạng thái đơn hàng</h2>
+        <p>Tỷ trọng đơn theo quy trình xử lý</p>
+      </div>
+    </div>
+    <div class="horizontal-chart">
+      <div class="horizontal-item" *ngFor="let item of getChartItems(orderStatusChart())">
+        <div class="horizontal-meta">
+          <span>{{ getStatusLabel(item.label) }}</span>
+          <strong>{{ item.value }}</strong>
+        </div>
+        <div class="horizontal-track">
+          <div class="horizontal-bar status-bar" [style.width.%]="getBarWidth(item.value, orderStatusChart())"></div>
+        </div>
+      </div>
+      <div class="empty-chart" *ngIf="getChartItems(orderStatusChart()).length === 0">Chưa có dữ liệu đơn hàng.</div>
+    </div>
+  </div>
+
+  <div class="admin-card category-report">
+    <div class="card-header">
+      <div>
+        <h2>Doanh thu theo danh mục</h2>
+        <p>Nhóm sản phẩm đóng góp doanh thu</p>
+      </div>
+    </div>
+    <div class="horizontal-chart">
+      <div class="horizontal-item" *ngFor="let item of getChartItems(categoryChart())">
+        <div class="horizontal-meta">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value | currency:'VND':'symbol':'1.0-0' }}</strong>
+        </div>
+        <div class="horizontal-track">
+          <div class="horizontal-bar category-bar" [style.width.%]="getBarWidth(item.value, categoryChart())"></div>
+        </div>
+      </div>
+      <div class="empty-chart" *ngIf="getChartItems(categoryChart()).length === 0">Chưa có dữ liệu danh mục.</div>
+    </div>
+  </div>
+
+  <div class="admin-card products-report">
+    <div class="card-header">
+      <div>
+        <h2>Sản phẩm bán chạy</h2>
+        <p>Hiệu suất trong {{ topProductsPeriod() }}</p>
+      </div>
+      <a routerLink="/admin/products" class="btn-link">Quản lý</a>
+    </div>
+    <div class="top-products">
+      <div class="top-product" *ngFor="let product of topProducts(); let index = index">
+        <span class="rank">{{ index + 1 }}</span>
+        <img [src]="product.productImage || 'assets/images/placeholder-product.png'" [alt]="product.productName">
+        <div class="product-info">
+          <strong>{{ product.productName }}</strong>
+          <span>{{ product.categoryName || 'Chưa phân loại' }}</span>
+        </div>
+        <div class="product-result">
+          <strong>{{ product.totalRevenue | currency:'VND':'symbol':'1.0-0' }}</strong>
+          <span>{{ product.totalSold }} sản phẩm</span>
+        </div>
+      </div>
+      <div class="empty-chart" *ngIf="topProducts().length === 0">Chưa có dữ liệu sản phẩm bán chạy.</div>
+    </div>
+  </div>
+</section>
+
 <!-- Recent Orders Only - Full Width -->
 <div class="admin-card full-width">
   <div class="card-header">

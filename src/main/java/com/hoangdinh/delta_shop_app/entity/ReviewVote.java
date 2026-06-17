@@ -9,7 +9,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "review_votes")
+@Table(name = "review_votes", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_review_vote_review_user", columnNames = {"review_id", "user_id"})
+})
 @EntityListeners(AuditingEntityListener.class)
 @Getter @Setter
 @NoArgsConstructor

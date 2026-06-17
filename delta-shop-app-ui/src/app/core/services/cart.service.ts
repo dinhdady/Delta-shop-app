@@ -48,20 +48,19 @@ export class CartService {
 
   private loadCart() {
     if (this.authService.isAuthenticated()) {
-      this.getCart().subscribe(cart => {
+      this.mergeGuestCart().subscribe(cart => {
         this.cartItems.set(cart.items || []);
         this.cartTotal.set(cart.total);
       });
     } else {
-      const savedCart = localStorage.getItem('cart');
-      if (savedCart) {
-        this.cartItems.set(JSON.parse(savedCart));
-      }
+      this.getGuestCart().subscribe(cart => this.applyCart(cart));
     }
   }
 
   getCart(): Observable<CartResponse> {
-    return this.http.get<CartResponse>(this.apiUrl);
+    return this.http.get<CartResponse>(this.apiUrl).pipe(
+      tap(cart => this.applyCart(cart))
+    );
   }
 
   addToCart(request: { variantId: string, quantity: number }): Observable<CartResponse> {
@@ -73,29 +72,25 @@ export class CartService {
         })
       );
     } else {
-      // Logic for guest cart can be added here
-      return new Observable(observer => {
-        // Mock logic for guest
-        observer.error('Please login to add to cart');
-      });
+      return this.http.post<CartResponse>(`${this.apiUrl}/guest/items`, request, { withCredentials: true }).pipe(
+        tap(cart => this.applyCart(cart))
+      );
     }
   }
 
   updateQuantity(cartItemId: string, quantity: number): Observable<CartResponse> {
-    return this.http.put<CartResponse>(`${this.apiUrl}/items`, { cartItemId, quantity }).pipe(
-      tap(cart => {
-        this.cartItems.set(cart.items || []);
-        this.cartTotal.set(cart.total);
-      })
+    const url = this.authService.isAuthenticated() ? `${this.apiUrl}/items` : `${this.apiUrl}/guest/items`;
+    return this.http.put<CartResponse>(url, { cartItemId, quantity }, { withCredentials: true }).pipe(
+      tap(cart => this.applyCart(cart))
     );
   }
 
   removeFromCart(cartItemId: string): Observable<CartResponse> {
-    return this.http.delete<CartResponse>(`${this.apiUrl}/items/${cartItemId}`).pipe(
-      tap(cart => {
-        this.cartItems.set(cart.items || []);
-        this.cartTotal.set(cart.total);
-      })
+    const url = this.authService.isAuthenticated()
+      ? `${this.apiUrl}/items/${cartItemId}`
+      : `${this.apiUrl}/guest/items/${cartItemId}`;
+    return this.http.delete<CartResponse>(url, { withCredentials: true }).pipe(
+      tap(cart => this.applyCart(cart))
     );
   }
 
@@ -106,9 +101,29 @@ export class CartService {
         this.cartTotal.set(0);
       });
     } else {
-      this.cartItems.set([]);
-      this.cartTotal.set(0);
-      localStorage.removeItem('cart');
+      this.http.delete(`${this.apiUrl}/guest/clear`, { withCredentials: true }).subscribe(() => {
+        this.cartItems.set([]);
+        this.cartTotal.set(0);
+      });
     }
+  }
+
+  getGuestCart(): Observable<CartResponse> {
+    return this.http.get<CartResponse>(`${this.apiUrl}/guest`, { withCredentials: true });
+  }
+
+  mergeGuestCart(): Observable<CartResponse> {
+    return this.http.post<CartResponse>(`${this.apiUrl}/merge`, {}, { withCredentials: true }).pipe(
+      tap(cart => this.applyCart(cart))
+    );
+  }
+
+  syncCart(cart: CartResponse): void {
+    this.applyCart(cart);
+  }
+
+  private applyCart(cart: CartResponse): void {
+    this.cartItems.set(cart.items || []);
+    this.cartTotal.set(cart.total || 0);
   }
 }

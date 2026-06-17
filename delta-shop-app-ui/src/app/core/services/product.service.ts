@@ -1,7 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface ProductSummary {
@@ -57,7 +56,7 @@ export interface PageResponse<T> {
   providedIn: 'root'
 })
 export class ProductService {
-  private apiUrl = `${environment.apiUrl}/products`;
+  private apiUrl = '/api/products';
 
   constructor(private http: HttpClient) { }
 
@@ -65,77 +64,26 @@ export class ProductService {
     let httpParams = new HttpParams();
     if (params) {
       Object.keys(params).forEach(key => {
-        if (params[key] !== null && params[key] !== undefined) {
-          httpParams = httpParams.set(key, params[key]);
+        const value = params[key];
+        if (value !== null && value !== undefined && value !== '' && value !== 'null' && value !== 'undefined') {
+          httpParams = httpParams.set(key, String(value).trim());
         }
       });
     }
-    return this.http.get<PageResponse<ProductSummary>>(this.apiUrl, { params: httpParams }).pipe(
-      catchError(() => of({
-        content: this.getMockProducts(),
-        pageNumber: 0,
-        pageSize: 10,
-        totalElements: 4,
-        totalPages: 1,
-        first: true,
-        last: true
-      }))
-    );
+    const hasKeyword = params?.keyword && params.keyword !== 'null' && params.keyword !== 'undefined';
+    const endpoint = hasKeyword ? `${this.apiUrl}/search` : this.apiUrl;
+    return this.http.get<PageResponse<ProductSummary>>(endpoint, { params: httpParams });
   }
 
   getProductById(id: string): Observable<ProductDetail> {
-    return this.http.get<ProductDetail>(`${this.apiUrl}/id/${id}`).pipe(
-      catchError(() => of(this.getMockProductDetail(id)))
-    );
+    return this.http.get<ProductDetail>(`${this.apiUrl}/id/${id}`);
   }
 
   getFeaturedProducts(): Observable<ProductSummary[]> {
-    return this.http.get<ProductSummary[]>(`${this.apiUrl}/featured`).pipe(
-      catchError(() => of(this.getMockProducts()))
-    );
+    return this.http.get<ProductSummary[]>(`${this.apiUrl}/featured`);
   }
 
   getCategories(): Observable<any[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/categories`).pipe(
-      catchError(() => of([
-        { id: '1', name: 'Bóng đá' },
-        { id: '2', name: 'Chạy bộ' },
-        { id: '3', name: 'Gym & Fitness' }
-      ]))
-    );
-  }
-
-  private getMockProducts(): ProductSummary[] {
-    return [
-      { id: '1', name: 'Giày Nike Air Zoom Pegasus 40', slug: 'nike-pegasus-40', primaryImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=800&auto=format&fit=crop', basePrice: 2890000, comparePrice: 3500000, discountPercentage: 17, averageRating: 4.8, reviewCount: 120, totalSold: 500, inStock: true },
-      { id: '2', name: 'Bóng Đá Adidas World Cup 2022', slug: 'adidas-world-cup', primaryImage: 'https://images.unsplash.com/photo-1614632537190-23e4146777db?q=80&w=800&auto=format&fit=crop', basePrice: 850000, comparePrice: 0, discountPercentage: 0, averageRating: 4.5, reviewCount: 45, totalSold: 230, inStock: true },
-      { id: '3', name: 'Áo Tập Gym Under Armour', slug: 'ua-gym-shirt', primaryImage: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?q=80&w=800&auto=format&fit=crop', basePrice: 550000, comparePrice: 650000, discountPercentage: 15, averageRating: 4.7, reviewCount: 88, totalSold: 150, inStock: true },
-      { id: '4', name: 'Tạ Tay Chrome 5kg', slug: 'chrome-dumbbell-5kg', primaryImage: 'https://images.unsplash.com/photo-1586401100295-7a8096fd231a?q=80&w=800&auto=format&fit=crop', basePrice: 350000, comparePrice: 0, discountPercentage: 0, averageRating: 4.9, reviewCount: 32, totalSold: 90, inStock: true }
-    ];
-  }
-
-  private getMockProductDetail(id: string): ProductDetail {
-    const products = this.getMockProducts();
-    const product = products.find(p => p.id === id) || products[0];
-    
-    return {
-      product: {
-        ...product,
-        sku: 'SKU-' + id,
-        category: { id: '1', name: 'Thể thao' },
-        brand: { id: '1', name: 'Delta' },
-        shortDescription: 'Sản phẩm chất lượng cao cho vận động viên chuyên nghiệp.',
-        description: 'Đây là mô tả chi tiết của sản phẩm. Được thiết kế để mang lại hiệu suất tối đa và sự thoải mái cho người dùng trong mọi điều kiện tập luyện.',
-        images: [product.primaryImage, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?q=80&w=1000&auto=format&fit=crop'],
-        featured: true
-      },
-      variants: [
-        { id: 'v1', name: 'Size 40', availableQuantity: 10, finalPrice: product.basePrice, inStock: true },
-        { id: 'v2', name: 'Size 41', availableQuantity: 5, finalPrice: product.basePrice, inStock: true },
-        { id: 'v3', name: 'Size 42', availableQuantity: 0, finalPrice: product.basePrice, inStock: false }
-      ],
-      galleryImages: [product.primaryImage, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?q=80&w=1000&auto=format&fit=crop'],
-      relatedProducts: products.filter(p => p.id !== id)
-    };
+    return this.http.get<any[]>(`${environment.apiUrl}/categories`);
   }
 }

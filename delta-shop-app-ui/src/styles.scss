@@ -19,18 +19,28 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-// Custom scrollbar
+// Neutral scrollbar
+* {
+  scrollbar-color: #c1c1c1 #ffffff;
+  scrollbar-width: auto;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #ffffff;
 }
 
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+}
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ff4500;
+  background: #a8a8a8;
 }
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);

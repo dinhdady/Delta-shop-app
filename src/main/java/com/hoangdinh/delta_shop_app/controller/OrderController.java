@@ -18,6 +18,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
+import java.time.LocalDate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import com.hoangdinh.delta_shop_app.dto.response.order.*;
+import com.hoangdinh.delta_shop_app.enums.OrderStatus;
 
 @RestController
 @RequestMapping("/orders")
@@ -44,8 +50,9 @@ public class OrderController {
     public ResponseEntity<PageResponse<OrderResponse>> getUserOrders(
             @RequestAttribute("userId") UUID userId,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(orderService.getUserOrders(userId, page, size));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(orderService.getUserOrders(userId, page, size, query));
     }
 
     @GetMapping("/me/{orderId}")
@@ -76,8 +83,9 @@ public class OrderController {
     public ResponseEntity<PageResponse<OrderResponse>> getAllOrders(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(orderService.getAllOrders(page, size, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String query) {
+        return ResponseEntity.ok(orderService.getAllOrders(page, size, status, query));
     }
 
     @GetMapping("/admin/{orderId}")
@@ -130,5 +138,106 @@ public class OrderController {
             @RequestAttribute("userId") UUID adminId) {
         orderService.deleteOrder(orderId, adminId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/admin/bulk-status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<Void> bulkUpdateStatus(
+            @RequestParam List<UUID> orderIds,
+            @RequestParam OrderStatus status,
+            @RequestAttribute("userId") UUID adminId) {
+        orderService.bulkUpdateStatus(orderIds, status, adminId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/admin/{orderId}/note")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<OrderDetailResponse> addAdminNote(
+            @PathVariable UUID orderId,
+            @RequestBody String note,
+            @RequestAttribute("userId") UUID adminId) {
+        return ResponseEntity.ok(orderService.addAdminNote(orderId, note, adminId));
+    }
+
+    @PostMapping("/admin/{orderId}/restore")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<OrderDetailResponse> restoreOrder(
+            @PathVariable UUID orderId,
+            @RequestAttribute("userId") UUID adminId) {
+        return ResponseEntity.ok(orderService.restoreOrder(orderId, adminId));
+    }
+
+    @GetMapping("/admin/statistics")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<OrderStatisticsResponse> getStatistics() {
+        return ResponseEntity.ok(orderService.getOrderStatistics());
+    }
+
+    @GetMapping("/admin/statistics/daily")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<DailyOrderStatisticsResponse> getDailyStatistics(
+            @RequestParam(defaultValue = "#{T(java.time.LocalDate).now()}") LocalDate date) {
+        return ResponseEntity.ok(orderService.getDailyStatistics(date));
+    }
+
+    @GetMapping("/admin/statistics/monthly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<MonthlyOrderStatisticsResponse> getMonthlyStatistics(
+            @RequestParam int year, @RequestParam int month) {
+        return ResponseEntity.ok(orderService.getMonthlyStatistics(year, month));
+    }
+
+    @GetMapping("/admin/statistics/yearly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<YearlyOrderStatisticsResponse> getYearlyStatistics(@RequestParam int year) {
+        return ResponseEntity.ok(orderService.getYearlyStatistics(year));
+    }
+
+    @GetMapping("/admin/statistics/revenue")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<RevenueResponse> getRevenue(
+            @RequestParam LocalDate startDate, @RequestParam LocalDate endDate) {
+        return ResponseEntity.ok(orderService.getRevenueByDateRange(startDate, endDate));
+    }
+
+    @GetMapping("/admin/statistics/top-products")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<List<TopProductResponse>> getTopProducts(
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate) {
+        return ResponseEntity.ok(orderService.getTopSellingProducts(limit, startDate, endDate));
+    }
+
+    @GetMapping("/admin/statistics/status-distribution")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<OrderStatusDistributionResponse> getStatusDistribution() {
+        return ResponseEntity.ok(orderService.getOrderStatusDistribution());
+    }
+
+    @GetMapping("/admin/export")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> exportOrders(
+            @RequestParam(defaultValue = "csv") String format,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) String status) {
+        byte[] content = "pdf".equalsIgnoreCase(format)
+                ? orderService.exportOrdersToPdf(startDate, endDate, status)
+                : orderService.exportOrdersToExcel(startDate, endDate, status);
+        String extension = "pdf".equalsIgnoreCase(format) ? "pdf" : "csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=orders." + extension)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(content);
+    }
+
+    @GetMapping("/admin/{orderId}/invoice")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<byte[]> generateInvoice(@PathVariable UUID orderId) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice.txt")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(orderService.generateInvoice(orderId));
     }
 }

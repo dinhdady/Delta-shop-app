@@ -82,6 +82,28 @@ export class AdminProductsComponent implements OnInit {
     });
   }
 
+  adjustStock(product: any) {
+    const currentStock = Number(product.stockQuantity || 0);
+    const value = prompt(`Nhập tồn kho mới cho "${product.name}"`, String(currentStock));
+    if (value === null) {
+      return;
+    }
+
+    const stockQuantity = Number(value);
+    if (!Number.isInteger(stockQuantity) || stockQuantity < 0) {
+      alert('Tồn kho phải là số nguyên không âm');
+      return;
+    }
+
+    this.productService.adjustStock(product.id, stockQuantity, 'Điều chỉnh nhanh từ danh sách sản phẩm').subscribe({
+      next: () => this.loadProducts(),
+      error: (err) => {
+        console.error('Error adjusting stock:', err);
+        alert(err.error?.message || 'Không thể điều chỉnh tồn kho');
+      }
+    });
+  }
+
   deleteProduct(id: string) {
     if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
       this.productService.deleteProduct(id).subscribe(() => {

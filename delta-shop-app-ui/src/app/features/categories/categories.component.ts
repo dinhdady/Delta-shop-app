@@ -183,7 +183,7 @@ styles: [`
     padding: 60px 0;
     text-align: center;
     position: relative;
-    border-bottom: 1px solid rgba(220, 60, 30, 0.3);
+    border-bottom: 1px solid rgba(205, 70, 49, 0.3);
   }
 
   .page-header::before {
@@ -193,12 +193,12 @@ styles: [`
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 50% 0%, rgba(200, 50, 30, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle at 50% 0%, rgba(205, 70, 49, 0.08) 0%, transparent 70%);
     pointer-events: none;
   }
 
   .page-title {
-    font-size: 42px;
+    font-size: 48px;
     font-weight: 800;
     color: #ffffff;
     margin-bottom: 16px;
@@ -619,6 +619,9 @@ styles: [`
   }
 
   @media (max-width: 768px) {
+    .page-header {
+      padding: 40px 0;
+    }
     .page-title {
       font-size: 32px;
     }
@@ -639,6 +642,9 @@ styles: [`
   }
 
   @media (max-width: 480px) {
+    .page-title {
+      font-size: 28px;
+    }
     .container {
       padding: 0 16px;
     }

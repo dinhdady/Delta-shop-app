@@ -1,13 +1,17 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ProductService } from '../../core/services/product.service';
 import { CartService } from '../../core/services/cart.service';
+import { AuthService } from '../../core/services/auth.service';
+import { WishlistService } from '../../core/services/wishlist.service';
 import { ToastrService } from 'ngx-toastr';
 import { SkeletonLoaderComponent } from '../../shared/components/skeleton-loader/skeleton-loader.component';
 import { FormsModule } from '@angular/forms';
 import { LucideAngularModule, ShoppingCart, Check, Heart, Shield, Truck, RefreshCw, Star, TruckIcon, Package, Ruler, Weight, Tag, Info } from 'lucide-angular';
+import { Observable } from 'rxjs';
+import { ReviewService, Review, ReviewStats, ReviewEligibility } from '../../core/services/review.service';
 
 interface SizeGuide {
   size: string;
@@ -259,7 +263,11 @@ interface ProductDetailApiResponse {
                 <button class="btn btn-outline btn-buy-now" (click)="buyNow()" [disabled]="maxStock === 0">
                   MUA NGAY
                 </button>
-                <button class="btn btn-icon btn-wishlist" aria-label="Yêu thích">
+                <button
+                  class="btn btn-icon btn-wishlist"
+                  [class.active]="isInWishlist()"
+                  (click)="toggleWishlist()"
+                  aria-label="Yêu thích">
                   <lucide-icon name="heart" [size]="20"></lucide-icon>
                 </button>
               </div>
@@ -371,13 +379,169 @@ interface ProductDetailApiResponse {
               <!-- Reviews Tab -->
               <div *ngIf="activeTab === 'reviews'" class="tab-pane">
                 <h3>Đánh giá sản phẩm</h3>
-                <div class="reviews-summary">
+                <div class="reviews-summary-grid">
                   <div class="rating-overall">
                     <div class="rating-number">{{ product.averageRating?.toFixed(1) || 0 }}</div>
                     <div class="rating-stars">
                       <span *ngFor="let star of [1,2,3,4,5]" class="star" [class.filled]="star <= (product.averageRating || 0)">★</span>
                     </div>
                     <div class="rating-count">{{ product.reviewCount || 0 }} đánh giá</div>
+                  </div>
+
+                  <div class="rating-distribution" *ngIf="reviewStats">
+                    <div class="dist-row" *ngFor="let star of [5,4,3,2,1]">
+                      <span class="dist-label">{{ star }} ★</span>
+                      <div class="dist-bar-wrapper">
+                        <div class="dist-bar" [style.width.%]="getStarPercentage(star)"></div>
+                      </div>
+                      <span class="dist-count">{{ getStarCount(star) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <hr class="review-divider">
+
+                <div class="product-review-editor" *ngIf="authService.isAuthenticated()">
+                  <ng-container *ngIf="reviewEligibility?.canReview; else reviewEligibilityMessage">
+                    <div class="review-editor-head">
+                      <div>
+                        <h4>Viết đánh giá của bạn</h4>
+                        <p>Chia sẻ trải nghiệm thực tế về sản phẩm.</p>
+                      </div>
+                      <span class="verified-purchase-badge">
+                        <lucide-icon name="check" [size]="12"></lucide-icon> Đã mua hàng
+                      </span>
+                    </div>
+
+                    <form class="product-review-form" (ngSubmit)="submitProductReview()">
+                      <div class="review-rating-input">
+                        <label>Chất lượng sản phẩm</label>
+                        <div class="review-star-picker">
+                          <button type="button" *ngFor="let star of [1,2,3,4,5]"
+                            [class.active]="star <= newReviewRating"
+                            (click)="newReviewRating = star"
+                            [attr.aria-label]="star + ' sao'">★</button>
+                        </div>
+                      </div>
+                      <div class="review-field">
+                        <label for="review-title">Tiêu đề</label>
+                        <input id="review-title" name="reviewTitle" [(ngModel)]="newReviewTitle"
+                          maxlength="300" placeholder="Điều bạn ấn tượng nhất">
+                      </div>
+                      <div class="review-field">
+                        <label for="review-body">Nhận xét của bạn</label>
+                        <textarea id="review-body" name="reviewBody" [(ngModel)]="newReviewBody"
+                          rows="4" placeholder="Hãy chia sẻ trải nghiệm sử dụng sản phẩm"></textarea>
+                      </div>
+                      <button class="submit-product-review" type="submit"
+                        [disabled]="submittingProductReview || !newReviewBody.trim()">
+                        {{ submittingProductReview ? 'Đang gửi...' : 'Gửi đánh giá' }}
+                      </button>
+                    </form>
+                  </ng-container>
+                  <ng-template #reviewEligibilityMessage>
+                    <div class="review-eligibility-message" *ngIf="reviewEligibility">
+                      <strong>{{ reviewEligibility.reviewed ? 'Bạn đã đánh giá sản phẩm này' : 'Chưa thể đánh giá sản phẩm' }}</strong>
+                      <span>{{ reviewEligibility.reason }}</span>
+                    </div>
+                  </ng-template>
+                </div>
+
+                <div class="review-login-message" *ngIf="!authService.isAuthenticated()">
+                  <strong>Đăng nhập để đánh giá sản phẩm</strong>
+                  <button type="button" (click)="router.navigate(['/auth/login'])">Đăng nhập</button>
+                </div>
+
+                <hr class="review-divider">
+
+                <div class="reviews-list-section">
+                  <h4 class="reviews-title">Nhận xét từ khách hàng</h4>
+                  <div *ngIf="loadingReviews" class="reviews-loading">Đang tải đánh giá...</div>
+                  <div *ngIf="!loadingReviews && reviewsList.length === 0" class="reviews-empty">Chưa có đánh giá nào cho sản phẩm này.</div>
+
+                  <div *ngIf="!loadingReviews && reviewsList.length > 0" class="reviews-list">
+                    <div class="review-card" *ngFor="let rev of reviewsList">
+                      <div class="review-card-header">
+                        <div class="author-avatar-wrapper">
+                          <img #avatarImg [src]="rev.userAvatar || 'assets/images/default-avatar.png'" alt="" class="review-avatar" (error)="avatarImg.src = 'https://via.placeholder.com/40x40?text=U'">
+                        </div>
+                        <div class="review-author-info">
+                          <div class="review-author-name">
+                            {{ rev.userName }}
+                            <span class="verified-purchase-badge" *ngIf="rev.verifiedPurchase">
+                              <lucide-icon name="check" [size]="12"></lucide-icon> Đã mua hàng
+                            </span>
+                          </div>
+                          <div class="review-stars-display">
+                            <span *ngFor="let s of [1,2,3,4,5]" class="star" [class.filled]="s <= rev.rating">★</span>
+                          </div>
+                        </div>
+                        <div class="review-header-actions">
+                          <span class="review-date-badge">{{ rev.createdAt | date:'dd/MM/yyyy' }}</span>
+                          <ng-container *ngIf="isOwnReview(rev)">
+                            <button type="button" class="review-action-btn edit" title="Chỉnh sửa đánh giá"
+                              (click)="startEditReview(rev)" [disabled]="updatingReview || deletingReviewId === rev.id">
+                              <lucide-icon name="pencil" [size]="15"></lucide-icon>
+                            </button>
+                            <button type="button" class="review-action-btn delete" title="Xóa đánh giá"
+                              (click)="deleteReview(rev)" [disabled]="updatingReview || deletingReviewId === rev.id">
+                              <lucide-icon name="trash-2" [size]="15"></lucide-icon>
+                            </button>
+                          </ng-container>
+                        </div>
+                      </div>
+                      <div class="review-card-body" *ngIf="editingReviewId !== rev.id; else editReviewForm">
+                        <h5 class="review-title-text" *ngIf="rev.title">{{ rev.title }}</h5>
+                        <p class="review-body-text">{{ rev.body }}</p>
+                        <div class="review-gallery" *ngIf="rev.images && rev.images.length > 0">
+                          <img *ngFor="let img of rev.images" [src]="img" alt="Ảnh đánh giá" class="review-gallery-img" (click)="openImageLightbox(img)">
+                        </div>
+                      </div>
+                      <ng-template #editReviewForm>
+                        <form class="inline-review-editor" (ngSubmit)="saveReviewEdit(rev)">
+                          <div class="review-star-picker compact">
+                            <button type="button" *ngFor="let star of [1,2,3,4,5]"
+                              [class.active]="star <= editReviewRating" (click)="editReviewRating = star">★</button>
+                          </div>
+                          <input name="editReviewTitle" [(ngModel)]="editReviewTitle" maxlength="300"
+                            placeholder="Tiêu đề đánh giá">
+                          <textarea name="editReviewBody" [(ngModel)]="editReviewBody" rows="4"
+                            placeholder="Nhận xét của bạn" required></textarea>
+                          <div class="inline-review-actions">
+                            <button type="button" class="cancel-review-edit" (click)="cancelEditReview()" [disabled]="updatingReview">
+                              Hủy
+                            </button>
+                            <button type="submit" class="save-review-edit" [disabled]="updatingReview || !editReviewBody.trim()">
+                              {{ updatingReview ? 'Đang lưu...' : 'Lưu thay đổi' }}
+                            </button>
+                          </div>
+                        </form>
+                      </ng-template>
+
+                      <!-- Admin Reply -->
+                      <div class="shop-reply-box" *ngIf="rev.adminReply">
+                        <div class="reply-header-info">
+                          <span class="reply-badge-text">Phản hồi của cửa hàng</span>
+                          <span class="reply-date-text">{{ rev.adminReplyAt | date:'dd/MM/yyyy' }}</span>
+                        </div>
+                        <p class="reply-body-text">{{ rev.adminReply }}</p>
+                      </div>
+
+                      <div class="review-card-footer">
+                        <button class="btn-vote-helpful" (click)="helpfulVote(rev)"
+                          [class.voted]="rev.votedHelpful" [disabled]="rev.votedHelpful || isOwnReview(rev)"
+                          [title]="isOwnReview(rev) ? 'Bạn không thể bình chọn đánh giá của chính mình' : ''">
+                          {{ rev.votedHelpful ? 'Đã bình chọn' : '👍 Hữu ích' }} ({{ rev.helpfulCount || 0 }})
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="reviews-pagination-controls" *ngIf="totalPagesReviews > 1">
+                      <button class="btn-pag" (click)="changeReviewsPage(currentPageReviews - 1)" [disabled]="currentPageReviews === 0">Trước</button>
+                      <span class="pag-text">Trang {{ currentPageReviews + 1 }} / {{ totalPagesReviews }}</span>
+                      <button class="btn-pag" (click)="changeReviewsPage(currentPageReviews + 1)" [disabled]="currentPageReviews === totalPagesReviews - 1">Sau</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -389,7 +553,7 @@ interface ProductDetailApiResponse {
             <h2 class="section-title">Sản phẩm liên quan</h2>
             <div class="related-products-grid">
               <div class="related-product-card" *ngFor="let related of relatedProducts">
-                <a [routerLink]="['/product', related.slug]">
+                <a [routerLink]="['/products', related.slug || related.id]">
                   <img [src]="related.primaryImage || 'assets/images/placeholder.jpg'" [alt]="related.name">
                   <h4>{{ related.name }}</h4>
                   <div class="price">
@@ -762,6 +926,11 @@ interface ProductDetailApiResponse {
     .btn-icon:hover {
       border-color: #111;
     }
+    .btn-wishlist.active {
+      background: #E63946;
+      border-color: #E63946;
+      color: white;
+    }
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -880,6 +1049,427 @@ interface ProductDetailApiResponse {
       color: #999;
     }
 
+    /* Reviews Styles */
+    .reviews-summary-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 40px;
+      margin-bottom: 30px;
+      align-items: center;
+      background: #fafafa;
+      padding: 24px;
+      border-radius: 12px;
+    }
+    @media (max-width: 768px) {
+      .reviews-summary-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+    }
+    .rating-overall {
+      text-align: center;
+    }
+    .rating-overall .rating-number {
+      font-size: 48px;
+      font-weight: 700;
+      color: #C52B36;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .rating-overall .rating-stars {
+      color: #ddd;
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .rating-overall .rating-stars .star.filled {
+      color: #ffc107;
+    }
+    .rating-overall .rating-count {
+      font-size: 14px;
+      color: #666;
+    }
+    .rating-distribution {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dist-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .dist-label {
+      width: 50px;
+      text-align: right;
+      color: #555;
+    }
+    .dist-bar-wrapper {
+      flex-grow: 1;
+      height: 8px;
+      background: #eee;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .dist-bar {
+      height: 100%;
+      background: #ffc107;
+      border-radius: 4px;
+    }
+    .dist-count {
+      width: 30px;
+      color: #888;
+    }
+    .review-divider {
+      border: 0;
+      border-top: 1px solid #eee;
+      margin: 30px 0;
+    }
+
+    .product-review-editor, .review-login-message {
+      margin: 24px 0;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .review-editor-head, .review-login-message, .review-eligibility-message {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .review-editor-head h4, .review-login-message strong, .review-eligibility-message strong {
+      margin: 0;
+      color: #171717;
+    }
+    .review-editor-head p, .review-eligibility-message span {
+      margin: 4px 0 0;
+      color: #737373;
+      font-size: 14px;
+    }
+    .product-review-form {
+      display: grid;
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .review-rating-input, .review-field {
+      display: grid;
+      gap: 8px;
+    }
+    .review-rating-input label, .review-field label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #262626;
+    }
+    .review-star-picker {
+      display: flex;
+      gap: 4px;
+    }
+    .review-star-picker button {
+      width: 36px;
+      height: 36px;
+      border: 0;
+      background: transparent;
+      color: #d4d4d4;
+      font-size: 28px;
+      cursor: pointer;
+    }
+    .review-star-picker button.active {
+      color: #f59e0b;
+    }
+    .review-field input, .review-field textarea {
+      width: 100%;
+      border: 1px solid #d4d4d4;
+      border-radius: 6px;
+      padding: 11px 12px;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    .review-field textarea {
+      resize: vertical;
+    }
+    .submit-product-review, .review-login-message button {
+      justify-self: start;
+      border: 0;
+      border-radius: 6px;
+      padding: 10px 18px;
+      background: #c41e3a;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .submit-product-review:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+    .reviews-list-section .reviews-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .reviews-loading, .reviews-empty {
+      text-align: center;
+      padding: 40px;
+      color: #888;
+      background: #fafafa;
+      border-radius: 8px;
+    }
+    .reviews-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .review-card {
+      border: 1px solid #eee;
+      border-radius: 12px;
+      padding: 20px;
+      background: #ffffff;
+    }
+    .review-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .author-avatar-wrapper {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #eee;
+      flex-shrink: 0;
+    }
+    .review-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .review-author-info {
+      flex-grow: 1;
+    }
+    .review-author-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .verified-purchase-badge {
+      background: #e8f5e9;
+      color: #2e7d32;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .review-stars-display {
+      color: #ddd;
+      font-size: 14px;
+    }
+    .review-stars-display .star.filled {
+      color: #ffc107;
+    }
+    .review-date-badge {
+      font-size: 12px;
+      color: #999;
+    }
+    .review-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .review-action-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .review-action-btn.edit:hover {
+      border-color: #cd4631;
+      color: #cd4631;
+      background: #fff7f5;
+    }
+    .review-action-btn.delete:hover {
+      border-color: #c62828;
+      color: #c62828;
+      background: #fff5f5;
+    }
+    .review-action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .review-card-body {
+      margin-left: 52px;
+      margin-bottom: 12px;
+    }
+    .review-title-text {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #333;
+    }
+    .review-body-text {
+      font-size: 14px;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .inline-review-editor {
+      margin: 4px 0 16px 52px;
+      display: grid;
+      gap: 10px;
+    }
+    .inline-review-editor input, .inline-review-editor textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font: inherit;
+      color: #333;
+      resize: vertical;
+    }
+    .inline-review-editor input:focus, .inline-review-editor textarea:focus {
+      outline: none;
+      border-color: #cd4631;
+      box-shadow: 0 0 0 3px rgba(205, 70, 49, 0.1);
+    }
+    .review-star-picker.compact button {
+      font-size: 24px;
+    }
+    .inline-review-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .cancel-review-edit, .save-review-edit {
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cancel-review-edit {
+      border: 1px solid #ddd;
+      background: #fff;
+      color: #555;
+    }
+    .save-review-edit {
+      border: 1px solid #cd4631;
+      background: #cd4631;
+      color: #fff;
+    }
+    .cancel-review-edit:disabled, .save-review-edit:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .review-gallery {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .review-gallery-img {
+      width: 70px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .review-gallery-img:hover {
+      transform: scale(1.05);
+    }
+    .shop-reply-box {
+      margin-left: 52px;
+      background: #f8f9fa;
+      border-left: 3px solid #cd4631;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 12px;
+    }
+    .reply-header-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .reply-badge-text {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cd4631;
+    }
+    .reply-date-text {
+      font-size: 11px;
+      color: #999;
+    }
+    .reply-body-text {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.5;
+    }
+    .review-card-footer {
+      margin-left: 52px;
+    }
+    .btn-vote-helpful {
+      background: none;
+      border: 1px solid #ddd;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-vote-helpful:hover {
+      border-color: #cd4631;
+      color: #cd4631;
+      background: rgba(205, 70, 49, 0.05);
+    }
+    .btn-vote-helpful.voted {
+      border-color: #cd4631;
+      background: #cd4631;
+      color: white;
+      cursor: default;
+    }
+    .btn-vote-helpful:disabled {
+      cursor: default;
+    }
+    .reviews-pagination-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 30px;
+    }
+    .btn-pag {
+      padding: 6px 16px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-pag:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pag-text {
+      font-size: 14px;
+      color: #555;
+    }
+
     /* Related Products */
     .related-products {
       margin-top: 48px;
@@ -952,8 +1542,12 @@ export class ProductDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private productService = inject(ProductService);
   private cartService = inject(CartService);
+  public authService = inject(AuthService);
+  private wishlistService = inject(WishlistService);
   private toastr = inject(ToastrService);
   private http = inject(HttpClient);
+  public router = inject(Router);
+  private reviewService = inject(ReviewService);
 
   product: ProductData | null = null;
   variants: any[] = [];
@@ -967,6 +1561,25 @@ export class ProductDetailComponent implements OnInit {
   quantity = 1;
   activeTab = 'description';
 
+  // Reviews state
+  reviewsList: Review[] = [];
+  reviewStats: ReviewStats | null = null;
+  loadingReviews = false;
+  currentPageReviews = 0;
+  totalPagesReviews = 0;
+  pageSizeReviews = 5;
+  reviewEligibility: ReviewEligibility | null = null;
+  newReviewRating = 5;
+  newReviewTitle = '';
+  newReviewBody = '';
+  submittingProductReview = false;
+  editingReviewId: string | null = null;
+  editReviewRating = 5;
+  editReviewTitle = '';
+  editReviewBody = '';
+  updatingReview = false;
+  deletingReviewId: string | null = null;
+
   tabs = [
     { id: 'description', label: 'Mô tả sản phẩm' },
     { id: 'specifications', label: 'Thông số kỹ thuật' },
@@ -975,9 +1588,14 @@ export class ProductDetailComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    if (this.authService.isAuthenticated()) {
+      this.wishlistService.loadSummary();
+    }
+
     this.route.params.subscribe(params => {
       const productId = params['id'] || params['slug'];
       if (productId) {
+        this.currentPageReviews = 0; // Reset pagination
         this.loadProduct(productId);
       }
     });
@@ -993,8 +1611,16 @@ export class ProductDetailComponent implements OnInit {
     return this.product?.stockQuantity || 0;
   }
 
+  isUUID(str: string): boolean {
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    return uuidRegex.test(str);
+  }
+
   loadProduct(id: string): void {
-    const apiUrl = `http://localhost:8080/api/products/id/${id}`;
+    const isUuid = this.isUUID(id);
+    const apiUrl = isUuid
+      ? `http://localhost:8080/api/products/id/${id}`
+      : `http://localhost:8080/api/products/${id}`;
     this.loading = true;
 
     this.http.get<ProductDetailApiResponse>(apiUrl).subscribe({
@@ -1006,6 +1632,12 @@ export class ProductDetailComponent implements OnInit {
         this.processImages(response);
         this.selectDefaultVariant();
         this.loading = false;
+
+        if (this.product?.id) {
+          this.loadReviews(this.product.id);
+          this.loadReviewStats(this.product.id);
+          this.loadProductReviewEligibility(this.product.id);
+        }
       },
       error: (error) => {
         console.error('Error loading product:', error);
@@ -1111,9 +1743,66 @@ export class ProductDetailComponent implements OnInit {
   }
 
   buyNow(): void {
-    this.addToCart();
-    // Navigate to checkout
-    // this.router.navigate(['/checkout']);
+    if (!this.selectedVariant && this.variants.length > 0 && (!this.product?.sizeGuides?.length)) {
+      this.toastr.warning('Vui lòng chọn phân loại sản phẩm');
+      return;
+    }
+
+    const variantId = this.selectedVariant?.id || this.variants[0]?.id;
+    if (!this.product || !variantId) {
+      this.toastr.warning('Không thể mua ngay sản phẩm này');
+      return;
+    }
+
+    const unitPrice = this.selectedVariant
+      ? this.product.basePrice + this.selectedVariant.priceModifier
+      : this.product.basePrice;
+
+    sessionStorage.setItem('buyNowItem', JSON.stringify({
+      id: `buy-now-${variantId}`,
+      variantId,
+      productId: this.product.id,
+      productName: this.product.name,
+      variantName: this.selectedVariant?.name || this.selectedSize?.label || this.selectedSize?.size || '',
+      unitPrice,
+      quantity: this.quantity,
+      subtotal: unitPrice * this.quantity,
+      productImage: this.selectedImage,
+      availableStock: this.maxStock,
+      selectedSize: this.selectedSize?.size,
+      selectedSizeLabel: this.selectedSize?.label,
+      selectedSizeMeasurement: this.selectedSize?.measurement
+    }));
+
+    this.router.navigate(['/checkout'], { queryParams: { mode: 'buy-now' } });
+  }
+
+  isInWishlist(): boolean {
+    return !!this.product?.id && this.wishlistService.isInWishlist(this.product.id);
+  }
+
+  toggleWishlist(): void {
+    if (!this.product?.id) {
+      return;
+    }
+
+    if (!this.authService.isAuthenticated()) {
+      this.toastr.warning('Vui lòng đăng nhập để thêm vào yêu thích');
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+
+    const wasInWishlist = this.isInWishlist();
+    const request$: Observable<unknown> = wasInWishlist
+      ? this.wishlistService.remove(this.product.id)
+      : this.wishlistService.add(this.product.id);
+
+    request$.subscribe({
+      next: () => {
+        this.toastr.success(wasInWishlist ? 'Đã xóa khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích');
+      },
+      error: () => this.toastr.error('Không thể cập nhật danh sách yêu thích')
+    });
   }
 
   openLightbox(): void {
@@ -1127,5 +1816,195 @@ export class ProductDetailComponent implements OnInit {
   onThumbnailError(event: Event, index: number): void {
     const img = event.target as HTMLImageElement;
     img.src = 'https://via.placeholder.com/80x80?text=Error';
+  }
+
+  loadReviews(productId: string): void {
+    this.loadingReviews = true;
+    this.reviewService.getProductReviews(productId, this.currentPageReviews, this.pageSizeReviews).subscribe({
+      next: (res) => {
+        this.reviewsList = res.content || [];
+        this.totalPagesReviews = res.totalPages || 0;
+        this.loadingReviews = false;
+      },
+      error: (err) => {
+        console.error('Error loading reviews:', err);
+        this.loadingReviews = false;
+      }
+    });
+  }
+
+  loadReviewStats(productId: string): void {
+    this.reviewService.getProductReviewStats(productId).subscribe({
+      next: (res) => {
+        this.reviewStats = res;
+        if (this.product) {
+          this.product.averageRating = res.averageRating;
+          this.product.reviewCount = res.totalReviews;
+        }
+      },
+      error: (err) => {
+        console.error('Error loading review stats:', err);
+      }
+    });
+  }
+
+  loadProductReviewEligibility(productId: string): void {
+    if (!this.authService.isAuthenticated()) {
+      this.reviewEligibility = null;
+      return;
+    }
+
+    this.reviewService.getProductReviewEligibility(productId).subscribe({
+      next: eligibility => this.reviewEligibility = eligibility,
+      error: () => this.reviewEligibility = null
+    });
+  }
+
+  submitProductReview(): void {
+    if (!this.product?.id || !this.reviewEligibility?.canReview || !this.reviewEligibility.orderItemId) {
+      return;
+    }
+
+    this.submittingProductReview = true;
+    this.reviewService.createReview({
+      productId: this.product.id,
+      orderItemId: this.reviewEligibility.orderItemId,
+      rating: this.newReviewRating,
+      title: this.newReviewTitle.trim(),
+      body: this.newReviewBody.trim()
+    }).subscribe({
+      next: () => {
+        this.submittingProductReview = false;
+        this.newReviewTitle = '';
+        this.newReviewBody = '';
+        this.toastr.success('Đánh giá đã được đăng thành công');
+        this.loadProductReviewEligibility(this.product!.id);
+        this.loadReviews(this.product!.id);
+        this.loadReviewStats(this.product!.id);
+      },
+      error: err => {
+        this.submittingProductReview = false;
+        this.toastr.error(err.error?.message || Object.values(err.error?.errors || {})[0] || 'Không thể gửi đánh giá');
+      }
+    });
+  }
+
+  isOwnReview(review: Review): boolean {
+    return !!this.authService.currentUser()?.userId && this.authService.currentUser()?.userId === review.userId;
+  }
+
+  startEditReview(review: Review): void {
+    this.editingReviewId = review.id;
+    this.editReviewRating = review.rating;
+    this.editReviewTitle = review.title || '';
+    this.editReviewBody = review.body || '';
+  }
+
+  cancelEditReview(): void {
+    this.editingReviewId = null;
+    this.updatingReview = false;
+  }
+
+  saveReviewEdit(review: Review): void {
+    if (!this.isOwnReview(review) || !this.editReviewBody.trim()) {
+      return;
+    }
+
+    this.updatingReview = true;
+    this.reviewService.updateReview(review.id, {
+      rating: this.editReviewRating,
+      title: this.editReviewTitle.trim(),
+      body: this.editReviewBody.trim()
+    }).subscribe({
+      next: updatedReview => {
+        const index = this.reviewsList.findIndex(item => item.id === updatedReview.id);
+        if (index >= 0) {
+          this.reviewsList[index] = updatedReview;
+        }
+        this.editingReviewId = null;
+        this.updatingReview = false;
+        this.toastr.success('Đã cập nhật đánh giá');
+        if (this.product?.id) {
+          this.loadReviewStats(this.product.id);
+        }
+      },
+      error: err => {
+        this.updatingReview = false;
+        this.toastr.error(err.error?.message || 'Không thể cập nhật đánh giá');
+      }
+    });
+  }
+
+  deleteReview(review: Review): void {
+    if (!this.isOwnReview(review) || !confirm('Bạn có chắc muốn xóa đánh giá này?')) {
+      return;
+    }
+
+    this.deletingReviewId = review.id;
+    this.reviewService.deleteReview(review.id).subscribe({
+      next: () => {
+        this.deletingReviewId = null;
+        this.editingReviewId = null;
+        this.toastr.success('Đã xóa đánh giá');
+        if (this.product?.id) {
+          this.loadReviews(this.product.id);
+          this.loadReviewStats(this.product.id);
+          this.loadProductReviewEligibility(this.product.id);
+        }
+      },
+      error: err => {
+        this.deletingReviewId = null;
+        this.toastr.error(err.error?.message || 'Không thể xóa đánh giá');
+      }
+    });
+  }
+
+  getStarCount(star: number): number {
+    if (!this.reviewStats) return 0;
+    switch (star) {
+      case 5: return this.reviewStats.fiveStarCount;
+      case 4: return this.reviewStats.fourStarCount;
+      case 3: return this.reviewStats.threeStarCount;
+      case 2: return this.reviewStats.twoStarCount;
+      case 1: return this.reviewStats.oneStarCount;
+      default: return 0;
+    }
+  }
+
+  getStarPercentage(star: number): number {
+    if (!this.reviewStats || this.reviewStats.totalReviews === 0) return 0;
+    return (this.getStarCount(star) / this.reviewStats.totalReviews) * 100;
+  }
+
+  changeReviewsPage(page: number): void {
+    if (page >= 0 && page < this.totalPagesReviews) {
+      this.currentPageReviews = page;
+      if (this.product?.id) {
+        this.loadReviews(this.product.id);
+      }
+    }
+  }
+
+  helpfulVote(review: any): void {
+    if (review.votedHelpful || this.isOwnReview(review)) return;
+    if (!this.authService.isAuthenticated()) {
+      this.toastr.warning('Vui lòng đăng nhập để bình chọn đánh giá hữu ích');
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+    this.reviewService.voteHelpful(review.id, true).subscribe({
+      next: () => {
+        review.helpfulCount++;
+        review.votedHelpful = true;
+        this.toastr.success('Cảm ơn bạn đã bình chọn hữu ích!');
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Không thể bình chọn hữu ích');
+      }
+    });
+  }
+
+  openImageLightbox(imgUrl: string): void {
+    window.open(imgUrl, '_blank');
   }
 }

@@ -1,16 +1,28 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
 import { AuthService } from '../services/auth.service';
+import { catchError, map, of } from 'rxjs';
 
 export const authGuard: CanActivateFn = (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  if (authService.isAuthenticated()) {
+  if (authService.getToken()) {
     return true;
   }
 
-  // Not authenticated, redirect to login page
+  if (authService.getRefreshToken()) {
+    return authService.refreshSession().pipe(
+      map(() => true),
+      catchError(() => {
+        authService.clearLocalSession();
+        router.navigate(['/auth/login'], { queryParams: { returnUrl: state.url } });
+        return of(false);
+      })
+    );
+  }
+
+  authService.clearLocalSession();
   router.navigate(['/auth/login'], { queryParams: { returnUrl: state.url } });
   return false;
 };

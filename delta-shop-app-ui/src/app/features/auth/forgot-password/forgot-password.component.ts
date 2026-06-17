@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { LucideAngularModule, Mail, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-angular';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -26,7 +26,8 @@ export class ForgotPasswordComponent {
 
   constructor(
     private fb: FormBuilder,
-    private authService: AuthService
+    private authService: AuthService,
+    private router: Router
   ) {
     this.initForm();
   }
@@ -52,13 +53,13 @@ export class ForgotPasswordComponent {
     this.authService.forgotPassword(email).subscribe({
       next: () => {
         this.isLoading = false;
-        this.successMessage = 'Link đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.';
-        this.forgotForm.reset();
+        // Redirect to reset password with email
+        this.router.navigate(['/auth/reset-password'], { queryParams: { email } });
       },
       error: (error) => {
         this.isLoading = false;
-        this.successMessage = 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được link đặt lại mật khẩu.';
-        this.forgotForm.reset();
+        // Still redirect to avoid leaking if email exists or not
+        this.router.navigate(['/auth/reset-password'], { queryParams: { email } });
       }
     });
   }

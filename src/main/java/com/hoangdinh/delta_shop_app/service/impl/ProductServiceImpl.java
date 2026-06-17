@@ -61,6 +61,7 @@ public class ProductServiceImpl implements ProductService {
     // ========== QUERY METHODS ==========
 
     @Override
+    @Transactional
     @Cacheable(value = "products", key = "#slug")
     public ProductDetailResponse getBySlug(String slug) {
         Product product = productRepository.findBySlugAndDeletedAtIsNull(slug)
@@ -737,6 +738,7 @@ public class ProductServiceImpl implements ProductService {
             case "rating" -> Sort.by(direction, "averageRating");
             case "sold" -> Sort.by(direction, "totalSold");
             case "name" -> Sort.by(direction, "name");
+            case "createdAt" -> Sort.by(direction, "createdAt");
             default -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
     }

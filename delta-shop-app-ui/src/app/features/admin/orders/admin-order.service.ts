@@ -10,9 +10,10 @@ export class AdminOrderService {
 
   constructor(private http: HttpClient) {}
 
-  getOrders(page: number, size: number, status?: string): Observable<PageResponse<OrderSummary>> {
+  getOrders(page: number, size: number, status?: string, query?: string): Observable<PageResponse<OrderSummary>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (status) params = params.set('status', status);
+    if (query) params = params.set('query', query);
     return this.http.get<PageResponse<OrderSummary>>(`${this.apiUrl}/admin`, { params });
   }
 

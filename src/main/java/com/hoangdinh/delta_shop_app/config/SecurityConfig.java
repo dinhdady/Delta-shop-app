@@ -46,27 +46,29 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints
+                        // Matchers use paths after the /api servlet context path.
                         .requestMatchers(
                                 "/auth/**",
                                 "/public/**",
                                 "/products/**",
                                 "/categories/**",
                                 "/brands/**",
+                                "/reviews/products/**",
+                                "/cart/guest/**",
+                                "/shipping/fees",
+                                "/shipping/tracking/**",
+                                "/momo/callback",
                                 "/vnpay/**",
                                 "/actuator/health",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/error"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/orders/{orderId}").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/orders").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/orders/{orderId}").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/orders").authenticated()
                         // Admin endpoints
-                        .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers("/admin/**", "/dashboard/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
-                        // User endpoints - SUPPORT BOTH PATHS
-                        .requestMatchers("/api/user/**", "/api/users/**").hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
-
-                        // Without /api prefix (if any direct calls)
                         .requestMatchers("/user/**", "/users/**").hasAnyAuthority("ROLE_CUSTOMER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
                         .anyRequest().authenticated()

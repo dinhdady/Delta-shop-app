@@ -24,6 +24,7 @@ export class AdminOrdersComponent implements OnInit {
   loading = signal(false);
 
   selectedStatus = '';
+  searchQuery = '';
   selectedOrder = signal<OrderDetail | null>(null);
   trackingNumber = '';
 
@@ -33,7 +34,12 @@ export class AdminOrdersComponent implements OnInit {
 
   loadOrders(): void {
     this.loading.set(true);
-    this.orderService.getOrders(this.currentPage(), this.pageSize, this.selectedStatus || undefined)
+    this.orderService.getOrders(
+      this.currentPage(),
+      this.pageSize,
+      this.selectedStatus || undefined,
+      this.searchQuery.trim() || undefined
+    )
       .subscribe({
         next: res => {
           this.orders.set(res.content);
