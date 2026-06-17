@@ -1,8 +1,9 @@
 // navbar.component.ts - Fixed version
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
-import { LucideAngularModule, Search, ShoppingCart, User } from 'lucide-angular';
+import { Router, RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { LucideAngularModule, Search, ShoppingCart, User, X } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -12,6 +13,7 @@ import { AuthService } from '../../../core/services/auth.service';
   imports: [
     CommonModule,
     RouterModule,
+    FormsModule,
     LucideAngularModule
   ],
   template: `
@@ -34,9 +36,30 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <!-- Actions -->
         <div class="nav-actions">
-          <button class="icon-btn" aria-label="Search">
-            <lucide-icon name="search"></lucide-icon>
-          </button>
+          <form class="search-form" [class.open]="searchOpen" (ngSubmit)="submitSearch()">
+            @if (searchOpen) {
+              <input
+                type="search"
+                name="keyword"
+                [(ngModel)]="searchKeyword"
+                placeholder="Tìm sản phẩm..."
+                aria-label="Tìm sản phẩm"
+                autocomplete="off"
+                (keydown.escape)="closeSearch()">
+            }
+            @if (!searchOpen) {
+              <button type="button" class="icon-btn" aria-label="Mở tìm kiếm" (click)="toggleSearch()">
+                <lucide-icon name="search"></lucide-icon>
+              </button>
+            } @else {
+              <button type="submit" class="icon-btn" aria-label="Tìm kiếm">
+                <lucide-icon name="search"></lucide-icon>
+              </button>
+              <button type="button" class="icon-btn" aria-label="Đóng tìm kiếm" (click)="closeSearch()">
+                <lucide-icon name="x"></lucide-icon>
+              </button>
+            }
+          </form>
 
           <a routerLink="/cart" class="icon-btn cart-btn" aria-label="Cart">
             <lucide-icon name="shopping-cart"></lucide-icon>
@@ -169,6 +192,32 @@ import { AuthService } from '../../../core/services/auth.service';
       align-items: center;
       gap: clamp(0.75rem, 1.5vw, 1.5rem);
       flex-shrink: 0;
+    }
+
+    .search-form {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .search-form.open {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      padding: 2px 4px 2px 10px;
+    }
+
+    .search-form input {
+      width: clamp(160px, 20vw, 260px);
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #ffffff;
+      font-size: 0.9rem;
+    }
+
+    .search-form input::placeholder {
+      color: #b8b8b8;
     }
 
     .icon-btn {
@@ -351,6 +400,20 @@ import { AuthService } from '../../../core/services/auth.service';
         display: none;
       }
 
+      .search-form.open {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        top: 10px;
+        background: #111111;
+        border-color: rgba(205, 70, 49, 0.35);
+        z-index: 2;
+      }
+
+      .search-form input {
+        width: 100%;
+      }
+
       .login-btn {
         padding: 0.4rem 1rem;
         font-size: 0.75rem;
@@ -374,10 +437,13 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class NavbarComponent {
   private cartService = inject(CartService);
+  private router = inject(Router);
   public authService = inject(AuthService);
 
   logoError = false;
   dropdownOpen = false;
+  searchOpen = false;
+  searchKeyword = '';
 
   cartCount = this.cartService.cartCount;
   isAuthenticated = this.authService.isAuthenticated;
@@ -396,6 +462,31 @@ export class NavbarComponent {
 
   closeDropdown() {
     this.dropdownOpen = false;
+  }
+
+  toggleSearch() {
+    this.searchOpen = true;
+    this.closeDropdown();
+  }
+
+  closeSearch() {
+    this.searchOpen = false;
+    this.searchKeyword = '';
+  }
+
+  submitSearch() {
+    const keyword = this.searchKeyword.trim();
+    if (!keyword) {
+      this.closeSearch();
+      this.router.navigate(['/products'], {
+        queryParams: { keyword: null },
+        queryParamsHandling: 'merge'
+      });
+      return;
+    }
+
+    this.searchOpen = false;
+    this.router.navigate(['/products'], { queryParams: { keyword } });
   }
 
   logout() {

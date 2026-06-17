@@ -71,15 +71,18 @@ export class ProductService {
       });
     }
     return this.http.get<PageResponse<ProductSummary>>(this.apiUrl, { params: httpParams }).pipe(
-      catchError(() => of({
-        content: this.getMockProducts(),
-        pageNumber: 0,
-        pageSize: 10,
-        totalElements: 4,
-        totalPages: 1,
-        first: true,
-        last: true
-      }))
+      catchError(() => {
+        const filteredProducts = this.getFilteredMockProducts(params);
+        return of({
+          content: filteredProducts,
+          pageNumber: 0,
+          pageSize: 10,
+          totalElements: filteredProducts.length,
+          totalPages: 1,
+          first: true,
+          last: true
+        });
+      })
     );
   }
 
@@ -112,6 +115,35 @@ export class ProductService {
       { id: '3', name: 'Áo Tập Gym Under Armour', slug: 'ua-gym-shirt', primaryImage: 'https://images.unsplash.com/photo-1581655353564-df123a1eb820?q=80&w=800&auto=format&fit=crop', basePrice: 550000, comparePrice: 650000, discountPercentage: 15, averageRating: 4.7, reviewCount: 88, totalSold: 150, inStock: true },
       { id: '4', name: 'Tạ Tay Chrome 5kg', slug: 'chrome-dumbbell-5kg', primaryImage: 'https://images.unsplash.com/photo-1586401100295-7a8096fd231a?q=80&w=800&auto=format&fit=crop', basePrice: 350000, comparePrice: 0, discountPercentage: 0, averageRating: 4.9, reviewCount: 32, totalSold: 90, inStock: true }
     ];
+  }
+
+  private getFilteredMockProducts(params?: any): ProductSummary[] {
+    let products = this.getMockProducts();
+    const keyword = String(params?.keyword || '').trim().toLowerCase();
+
+    if (keyword) {
+      products = products.filter(product =>
+        product.name.toLowerCase().includes(keyword) ||
+        product.slug.toLowerCase().includes(keyword)
+      );
+    }
+
+    if (params?.categoryId) {
+      const categoryKeywords: Record<string, string[]> = {
+        '1': ['bóng', 'adidas'],
+        '2': ['giày', 'nike', 'pegasus'],
+        '3': ['gym', 'tạ', 'under armour']
+      };
+      const keywords = categoryKeywords[String(params.categoryId)] || [];
+      if (keywords.length > 0) {
+        products = products.filter(product => {
+          const haystack = `${product.name} ${product.slug}`.toLowerCase();
+          return keywords.some(term => haystack.includes(term));
+        });
+      }
+    }
+
+    return products;
   }
 
   private getMockProductDetail(id: string): ProductDetail {

@@ -50,6 +50,18 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
               <div class="results-count">
                 Hiển thị {{ totalElements }} sản phẩm
               </div>
+              <form class="product-search" (ngSubmit)="applySearch()">
+                <input
+                  type="search"
+                  name="keyword"
+                  [(ngModel)]="keyword"
+                  placeholder="Tìm kiếm sản phẩm..."
+                  aria-label="Tìm kiếm sản phẩm">
+                @if (keyword) {
+                  <button type="button" class="clear-search" (click)="clearSearch()" aria-label="Xóa tìm kiếm">×</button>
+                }
+                <button type="submit">Tìm</button>
+              </form>
               <div class="sort-control">
                 <select [(ngModel)]="sortDir" (change)="loadProducts()">
                   <option value="desc">Mới nhất</option>
@@ -283,6 +295,53 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
       color: #777;
     }
 
+    .product-search {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      max-width: 420px;
+      min-width: 240px;
+    }
+
+    .product-search input {
+      flex: 1;
+      min-width: 0;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      background: #ffffff;
+      color: #222;
+    }
+
+    .product-search input:focus {
+      border-color: #cd4631;
+      box-shadow: 0 0 0 3px rgba(205, 70, 49, 0.1);
+    }
+
+    .product-search button {
+      border: 0;
+      border-radius: 8px;
+      background: #cd4631;
+      color: #ffffff;
+      padding: 0.65rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .product-search .clear-search {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      background: #eeeeee;
+      color: #333333;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
     .sort-control {
       select {
         padding: 0.5rem 1rem;
@@ -415,6 +474,12 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
         align-items: flex-start;
       }
 
+      .product-search {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+      }
+
       .sort-control select {
         width: 100%;
       }
@@ -445,12 +510,16 @@ export class ProductsComponent implements OnInit {
 
   sortDir = 'desc';
   selectedCategories: string[] = [];
+  keyword = '';
 
   ngOnInit() {
     this.loadCategories();
     this.route.queryParams.subscribe(params => {
+      this.keyword = params['keyword'] || '';
       if (params['category']) {
         this.selectedCategories = Array.isArray(params['category']) ? params['category'] : [params['category']];
+      } else {
+        this.selectedCategories = [];
       }
       this.loadProducts();
     });
@@ -468,6 +537,10 @@ export class ProductsComponent implements OnInit {
       sortDir: this.sortDir,
       size: 12
     };
+
+    if (this.keyword.trim()) {
+      params.keyword = this.keyword.trim();
+    }
 
     if (this.selectedCategories.length > 0) {
       params.categoryId = this.selectedCategories[0]; // Assuming backend takes single for now or update logic
@@ -498,5 +571,19 @@ export class ProductsComponent implements OnInit {
       queryParams: { category: this.selectedCategories.length > 0 ? this.selectedCategories[0] : null },
       queryParamsHandling: 'merge'
     });
+  }
+
+  applySearch() {
+    const keyword = this.keyword.trim();
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { keyword: keyword || null },
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  clearSearch() {
+    this.keyword = '';
+    this.applySearch();
   }
 }
