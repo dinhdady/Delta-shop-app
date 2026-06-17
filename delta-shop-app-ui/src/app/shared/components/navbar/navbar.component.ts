@@ -36,30 +36,9 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <!-- Actions -->
         <div class="nav-actions">
-          <form class="search-form" [class.open]="searchOpen" (ngSubmit)="submitSearch()">
-            @if (searchOpen) {
-              <input
-                type="search"
-                name="keyword"
-                [(ngModel)]="searchKeyword"
-                placeholder="Tìm sản phẩm..."
-                aria-label="Tìm sản phẩm"
-                autocomplete="off"
-                (keydown.escape)="closeSearch()">
-            }
-            @if (!searchOpen) {
-              <button type="button" class="icon-btn" aria-label="Mở tìm kiếm" (click)="toggleSearch()">
-                <lucide-icon name="search"></lucide-icon>
-              </button>
-            } @else {
-              <button type="submit" class="icon-btn" aria-label="Tìm kiếm">
-                <lucide-icon name="search"></lucide-icon>
-              </button>
-              <button type="button" class="icon-btn" aria-label="Đóng tìm kiếm" (click)="closeSearch()">
-                <lucide-icon name="x"></lucide-icon>
-              </button>
-            }
-          </form>
+          <button type="button" class="icon-btn" aria-label="Mở tìm kiếm" (click)="toggleSearch()">
+            <lucide-icon name="search"></lucide-icon>
+          </button>
 
           <a routerLink="/cart" class="icon-btn cart-btn" aria-label="Cart">
             <lucide-icon name="shopping-cart"></lucide-icon>
@@ -92,6 +71,24 @@ import { AuthService } from '../../../core/services/auth.service';
             <a routerLink="/auth/login" class="btn btn-primary login-btn">Đăng nhập</a>
           }
         </div>
+      </div>
+
+      <div class="search-island-wrap" [class.show]="searchOpen">
+        <form class="search-island" (ngSubmit)="submitSearch()">
+          <lucide-icon name="search" class="search-leading"></lucide-icon>
+          <input
+            type="search"
+            name="keyword"
+            [(ngModel)]="searchKeyword"
+            placeholder="Tìm sản phẩm..."
+            aria-label="Tìm sản phẩm"
+            autocomplete="off"
+            (keydown.escape)="closeSearch()">
+          <button type="submit" class="island-action">Tìm</button>
+          <button type="button" class="island-icon" aria-label="Đóng tìm kiếm" (click)="closeSearch()">
+            <lucide-icon name="x"></lucide-icon>
+          </button>
+        </form>
       </div>
     </header>
   `,
@@ -194,30 +191,96 @@ import { AuthService } from '../../../core/services/auth.service';
       flex-shrink: 0;
     }
 
-    .search-form {
+    .search-island-wrap {
+      position: absolute;
+      top: calc(100% + 10px);
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      padding: 0 20px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-10px) scale(0.96);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    .search-island-wrap.show {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .search-island {
+      width: min(620px, 100%);
+      min-height: 56px;
       display: flex;
       align-items: center;
-      gap: 0.25rem;
+      gap: 0.75rem;
+      padding: 0.45rem 0.5rem 0.45rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(12, 12, 12, 0.94);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(205, 70, 49, 0.16);
+      backdrop-filter: blur(14px);
     }
 
-    .search-form.open {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 8px;
-      padding: 2px 4px 2px 10px;
+    .search-leading {
+      width: 20px;
+      height: 20px;
+      color: #cd4631;
+      flex-shrink: 0;
     }
 
-    .search-form input {
-      width: clamp(160px, 20vw, 260px);
+    .search-island input {
+      flex: 1;
+      min-width: 0;
       border: 0;
       outline: 0;
       background: transparent;
       color: #ffffff;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
     }
 
-    .search-form input::placeholder {
+    .search-island input::placeholder {
       color: #b8b8b8;
+    }
+
+    .island-action,
+    .island-icon {
+      border: 0;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .island-action {
+      height: 40px;
+      padding: 0 1.1rem;
+      border-radius: 999px;
+      background: #cd4631;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+
+    .island-action:hover {
+      background: #b83a26;
+    }
+
+    .island-icon {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .island-icon:hover {
+      background: rgba(205, 70, 49, 0.18);
+      color: #cd4631;
     }
 
     .icon-btn {
@@ -400,18 +463,25 @@ import { AuthService } from '../../../core/services/auth.service';
         display: none;
       }
 
-      .search-form.open {
-        position: absolute;
-        left: 16px;
-        right: 16px;
-        top: 10px;
-        background: #111111;
-        border-color: rgba(205, 70, 49, 0.35);
-        z-index: 2;
+      .search-island-wrap {
+        top: calc(100% + 8px);
+        padding: 0 12px;
       }
 
-      .search-form input {
-        width: 100%;
+      .search-island {
+        min-height: 52px;
+        gap: 0.5rem;
+        padding-left: 0.85rem;
+      }
+
+      .island-action {
+        height: 36px;
+        padding: 0 0.9rem;
+      }
+
+      .island-icon {
+        width: 36px;
+        height: 36px;
       }
 
       .login-btn {
