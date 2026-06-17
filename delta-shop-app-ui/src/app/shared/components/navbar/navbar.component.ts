@@ -1,9 +1,9 @@
 // navbar.component.ts - Fixed version
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, Search, ShoppingCart, User, X } from 'lucide-angular';
+import { LucideAngularModule, Search, ShoppingCart, User } from 'lucide-angular';
 import { CartService } from '../../../core/services/cart.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -84,10 +84,6 @@ import { AuthService } from '../../../core/services/auth.service';
             aria-label="Tìm sản phẩm"
             autocomplete="off"
             (keydown.escape)="closeSearch()">
-          <button type="submit" class="island-action">Tìm</button>
-          <button type="button" class="island-icon" aria-label="Đóng tìm kiếm" (click)="closeSearch()">
-            <lucide-icon name="x"></lucide-icon>
-          </button>
         </form>
       </div>
     </header>
@@ -213,16 +209,16 @@ import { AuthService } from '../../../core/services/auth.service';
 
     .search-island {
       width: min(620px, 100%);
-      min-height: 56px;
+      min-height: 54px;
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.45rem 0.5rem 0.45rem 1rem;
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 0.45rem 1.25rem;
+      border: 1px solid rgba(205, 70, 49, 0.16);
       border-radius: 999px;
-      background: rgba(12, 12, 12, 0.94);
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(205, 70, 49, 0.16);
-      backdrop-filter: blur(14px);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(16px);
     }
 
     .search-leading {
@@ -238,49 +234,12 @@ import { AuthService } from '../../../core/services/auth.service';
       border: 0;
       outline: 0;
       background: transparent;
-      color: #ffffff;
+      color: #1a1a1a;
       font-size: 0.95rem;
     }
 
     .search-island input::placeholder {
-      color: #b8b8b8;
-    }
-
-    .island-action,
-    .island-icon {
-      border: 0;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-    }
-
-    .island-action {
-      height: 40px;
-      padding: 0 1.1rem;
-      border-radius: 999px;
-      background: #cd4631;
-      color: #ffffff;
-      font-weight: 700;
-      font-size: 0.85rem;
-    }
-
-    .island-action:hover {
-      background: #b83a26;
-    }
-
-    .island-icon {
-      width: 40px;
-      height: 40px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.08);
-      color: #ffffff;
-    }
-
-    .island-icon:hover {
-      background: rgba(205, 70, 49, 0.18);
-      color: #cd4631;
+      color: #777777;
     }
 
     .icon-btn {
@@ -471,17 +430,7 @@ import { AuthService } from '../../../core/services/auth.service';
       .search-island {
         min-height: 52px;
         gap: 0.5rem;
-        padding-left: 0.85rem;
-      }
-
-      .island-action {
-        height: 36px;
-        padding: 0 0.9rem;
-      }
-
-      .island-icon {
-        width: 36px;
-        height: 36px;
+        padding: 0.4rem 1rem;
       }
 
       .login-btn {
@@ -530,6 +479,14 @@ export class NavbarComponent {
     this.dropdownOpen = !this.dropdownOpen;
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (!target?.closest('.search-island') && !target?.closest('[aria-label="Mở tìm kiếm"]')) {
+      this.searchOpen = false;
+    }
+  }
+
   closeDropdown() {
     this.dropdownOpen = false;
   }
@@ -537,6 +494,9 @@ export class NavbarComponent {
   toggleSearch() {
     this.searchOpen = true;
     this.closeDropdown();
+    setTimeout(() => {
+      document.querySelector<HTMLInputElement>('.search-island input')?.focus();
+    });
   }
 
   closeSearch() {
