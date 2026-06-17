@@ -73,6 +73,14 @@ import { AuthService } from '../../../core/services/auth.service';
         </div>
       </div>
 
+      <nav class="mobile-nav-links" aria-label="Điều hướng mobile">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Trang chủ</a>
+        <a routerLink="/products" routerLinkActive="active">Sản phẩm</a>
+        <a routerLink="/categories" routerLinkActive="active">Danh mục</a>
+        <a routerLink="/about" routerLinkActive="active">Giới thiệu</a>
+        <a routerLink="/contact" routerLinkActive="active">Liên hệ</a>
+      </nav>
+
       <div class="search-island-wrap" [class.show]="searchOpen">
         <form class="search-island" (ngSubmit)="submitSearch()">
           <lucide-icon name="search" class="search-leading"></lucide-icon>
@@ -177,6 +185,10 @@ import { AuthService } from '../../../core/services/auth.service';
     .nav-links a:hover,
     .nav-links a.active {
       color: #cd4631;
+    }
+
+    .mobile-nav-links {
+      display: none;
     }
 
     /* Actions */
@@ -422,6 +434,33 @@ import { AuthService } from '../../../core/services/auth.service';
         display: none;
       }
 
+      .mobile-nav-links {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding: 0 16px 10px;
+        scrollbar-width: none;
+      }
+
+      .mobile-nav-links::-webkit-scrollbar {
+        display: none;
+      }
+
+      .mobile-nav-links a {
+        flex: 0 0 auto;
+        padding: 0.45rem 0.75rem;
+        border-radius: 999px;
+        color: #ffffff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .mobile-nav-links a.active {
+        background: #cd4631;
+      }
+
       .search-island-wrap {
         top: calc(100% + 8px);
         padding: 0 12px;
@@ -436,6 +475,8 @@ import { AuthService } from '../../../core/services/auth.service';
       .login-btn {
         padding: 0.4rem 1rem;
         font-size: 0.75rem;
+        max-width: 96px;
+        white-space: nowrap;
       }
 
       .user-name {
@@ -450,6 +491,23 @@ import { AuthService } from '../../../core/services/auth.service';
     @media (max-width: 480px) {
       .logo-text {
         display: none;
+      }
+
+      .nav-actions {
+        gap: 0.35rem;
+      }
+
+      .icon-btn,
+      .user-trigger {
+        width: 40px;
+        height: 40px;
+        padding: 8px;
+      }
+
+      .login-btn {
+        max-width: 84px;
+        padding: 0.45rem 0.7rem;
+        font-size: 0.7rem;
       }
     }
   `]

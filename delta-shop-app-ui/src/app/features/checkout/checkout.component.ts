@@ -422,6 +422,92 @@ import { ToastrService } from 'ngx-toastr';
       padding: 0.5rem 1rem;
       font-size: 0.875rem;
     }
+
+    @media (max-width: 768px) {
+      .page-header {
+        padding: 2rem 0;
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+
+      .checkout-layout {
+        gap: 2rem;
+      }
+
+      .form-section {
+        margin-bottom: 2rem;
+
+        h2 {
+          font-size: 1.2rem;
+          line-height: 1.25;
+        }
+      }
+
+      .address-card {
+        gap: 0.75rem;
+        padding: 0.9rem;
+      }
+
+      .payment-method .method-box {
+        padding: 1rem;
+      }
+
+      .payment-method .method-name {
+        font-size: 1rem;
+      }
+
+      .order-summary {
+        position: static;
+        padding: 1.25rem;
+
+        h2 {
+          font-size: 1.2rem;
+        }
+      }
+
+      .order-item {
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .summary-totals .summary-row {
+        font-size: 1rem;
+
+        &.total {
+          font-size: 1.25rem;
+        }
+      }
+
+      .submit-btn {
+        height: auto;
+        min-height: 48px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .address-card {
+        align-items: flex-start;
+      }
+
+      .address-card .address-details p {
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .order-item {
+        flex-direction: column;
+      }
+
+      .order-item .item-info {
+        padding-right: 0;
+      }
+
+      .order-item .item-price {
+        align-self: flex-end;
+      }
+    }
   `]
 })
 export class CheckoutComponent implements OnInit {

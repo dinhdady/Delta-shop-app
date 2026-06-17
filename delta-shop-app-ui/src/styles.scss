@@ -18,6 +18,7 @@ body {
   color: var(--color-dark-alt);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 // Custom scrollbar
 ::-webkit-scrollbar {
@@ -54,6 +55,30 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .section {
+    padding: 2.5rem 0;
+  }
+
+  .btn {
+    min-height: 44px;
+    padding: 0.7rem 1rem;
+    font-size: 1rem;
+  }
 }
 
 /* Typography Utilities */

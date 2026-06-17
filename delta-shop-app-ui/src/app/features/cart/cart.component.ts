@@ -358,6 +358,83 @@ import { FormsModule } from '@angular/forms';
       }
     }
 
+    @media (max-width: 768px) {
+      .page-header {
+        padding: 2rem 0;
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+
+      .cart-layout {
+        gap: 2rem;
+      }
+
+      .cart-item {
+        gap: 0.75rem;
+      }
+
+      .col-product {
+        gap: 1rem;
+
+        .product-image {
+          width: 82px;
+          height: 82px;
+        }
+
+        h3 {
+          font-size: 0.95rem;
+          line-height: 1.35;
+        }
+      }
+
+      .quantity-control {
+        button,
+        input {
+          height: 36px;
+        }
+      }
+
+      .cart-summary {
+        position: static;
+        padding: 1.25rem;
+      }
+
+      .summary-row {
+        font-size: 1rem;
+
+        &.total {
+          font-size: 1.25rem;
+        }
+      }
+    }
+
+    @media (max-width: 480px) {
+      .empty-cart {
+        padding: 3rem 0;
+
+        h2 {
+          font-size: 1.45rem;
+        }
+      }
+
+      .col-product {
+        align-items: flex-start;
+
+        .product-image {
+          width: 72px;
+          height: 72px;
+        }
+      }
+
+      .checkout-btn {
+        height: auto;
+        min-height: 48px;
+        font-size: 0.95rem;
+      }
+    }
+
     .summary-row {
       display: flex;
       justify-content: space-between;
@@ -385,6 +462,21 @@ import { FormsModule } from '@angular/forms';
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .summary-row {
+        font-size: 1rem;
+
+        &.total {
+          font-size: 1.25rem;
+        }
+      }
+
+      .checkout-btn {
+        height: auto;
+        min-height: 48px;
+      }
     }
   `]
 })

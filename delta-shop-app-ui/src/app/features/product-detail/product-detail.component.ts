@@ -933,6 +933,157 @@ interface ProductDetailApiResponse {
       text-decoration: line-through;
     }
 
+    @media (max-width: 768px) {
+      .product-detail-section {
+        padding-top: 24px;
+      }
+
+      .breadcrumb {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 6px;
+        margin-bottom: 18px;
+      }
+
+      .breadcrumb span {
+        margin: 0 6px;
+      }
+
+      .product-detail-grid {
+        gap: 28px;
+        margin-bottom: 36px;
+      }
+
+      .product-gallery {
+        position: static;
+      }
+
+      .main-image-container {
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+
+      .thumbnail-list {
+        gap: 8px;
+        padding-bottom: 4px;
+      }
+
+      .thumbnail-item {
+        width: 64px;
+        height: 64px;
+      }
+
+      .product-title {
+        font-size: 24px;
+        line-height: 1.18;
+      }
+
+      .current-price {
+        font-size: 26px;
+      }
+
+      .old-price {
+        font-size: 16px;
+      }
+
+      .size-options,
+      .variant-options {
+        gap: 8px;
+      }
+
+      .size-btn,
+      .variant-btn {
+        min-width: 54px;
+        padding: 9px 14px;
+      }
+
+      .quantity-section {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .stock-status {
+        margin-left: 0;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+
+      .btn,
+      .btn-add-to-cart,
+      .btn-outline,
+      .btn-icon {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .tab-headers {
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .tab-headers::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tab-btn {
+        flex: 0 0 auto;
+        padding: 12px 16px;
+        white-space: nowrap;
+      }
+
+      .spec-row {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .spec-label {
+        width: auto;
+      }
+
+      .tab-pane {
+        overflow-x: auto;
+      }
+
+      .size-table {
+        min-width: 520px;
+      }
+
+      .related-products {
+        margin-top: 36px;
+      }
+
+      .related-products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .related-product-card img {
+        height: 130px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .product-title {
+        font-size: 21px;
+      }
+
+      .current-price {
+        font-size: 24px;
+      }
+
+      .rating-section {
+        gap: 8px;
+      }
+
+      .related-products-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     /* Error State */
     .error-state {
       text-align: center;

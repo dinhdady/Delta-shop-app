@@ -467,6 +467,42 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
 
       .sidebar {
         padding: 1rem;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .filter-group {
+        margin-bottom: 0;
+      }
+
+      .checkbox-group {
+        flex-direction: row;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        scrollbar-width: none;
+      }
+
+      .checkbox-group::-webkit-scrollbar {
+        display: none;
+      }
+
+      .checkbox-container {
+        flex: 0 0 auto;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+        padding: 0.55rem 0.75rem 0.55rem 2rem;
+        border: 1px solid #e6e6e6;
+        border-radius: 999px;
+        background: #ffffff;
+        white-space: nowrap;
+      }
+
+      .checkbox-container .checkmark {
+        top: 50%;
+        left: 9px;
+        transform: translateY(-50%);
       }
 
       .toolbar {
@@ -492,6 +528,22 @@ import { LucideAngularModule, Filter } from 'lucide-angular';
 
       .filter-header h3 {
         font-size: 1rem;
+      }
+
+      .container {
+        padding: 0 14px;
+      }
+
+      .products-grid {
+        gap: 1rem;
+      }
+
+      .product-search {
+        gap: 0.4rem;
+      }
+
+      .product-search button {
+        padding: 0.65rem 0.8rem;
       }
     }
   `]

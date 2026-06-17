@@ -64,6 +64,17 @@
   background: #f8f9fa;
 }
 
+@media (max-width: 768px) {
+  .auth-wrapper {
+    min-height: 100svh;
+  }
+
+  .auth-content {
+    align-items: flex-start;
+    padding: 1.5rem 1rem;
+  }
+}
+
 .auth-card {
   width: 100%;
   max-width: 440px;
@@ -74,7 +85,7 @@
   animation: fadeInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
 
   @media (max-width: 480px) {
-    padding: 2rem;
+    padding: 1.5rem 0.5rem;
     box-shadow: none;
     background: transparent;
     animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
@@ -218,6 +229,26 @@
     &:hover {
       text-decoration: underline;
     }
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-header {
+    margin-bottom: 1.75rem;
+
+    h1 {
+      font-size: 1.8rem;
+    }
+  }
+
+  .form-options {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .social-auth {
+    grid-template-columns: 1fr;
   }
 }
 

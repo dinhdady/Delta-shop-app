@@ -192,6 +192,45 @@ import { ToastrService } from 'ngx-toastr';
         font-weight: 600;
       }
     }
+
+    @media (hover: none) {
+      .card-actions {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .product-info {
+        padding: 1rem;
+      }
+
+      .badges {
+        top: 0.75rem;
+        left: 0.75rem;
+      }
+
+      .name {
+        font-size: 0.95rem;
+        height: auto;
+        min-height: 2.4rem;
+      }
+
+      .price-container {
+        flex-wrap: wrap;
+        align-items: baseline;
+        font-size: 1.1rem;
+      }
+
+      .old-price {
+        font-size: 0.9rem;
+      }
+
+      .rating {
+        flex-wrap: wrap;
+        row-gap: 0.25rem;
+      }
+    }
   `]
 })
 export class ProductCardComponent {
