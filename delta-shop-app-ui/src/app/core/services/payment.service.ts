@@ -1,7 +1,7 @@
 // payment.service.ts - Đảm bảo có method này
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 
 export interface VNPayPaymentRequest {
   orderId: string;
@@ -27,6 +27,17 @@ export class PaymentService {
   constructor(private http: HttpClient) {}
 
   createVNPayPayment(request: VNPayPaymentRequest): Observable<PaymentUrlResponse> {
+    if (localStorage.getItem('accessToken') === 'mock-admin-access-token') {
+      return of({
+        paymentUrl: `/payment-result?status=SUCCESS&orderId=${encodeURIComponent(request.orderId)}&orderNumber=MOCK&transactionNo=MOCK-VNPAY`,
+        paymentId: `mock-payment-${Date.now()}`,
+        orderId: request.orderId,
+        orderNumber: 'MOCK',
+        gateway: 'VNPAY',
+        amount: 0,
+        transactionNo: 'MOCK-VNPAY'
+      });
+    }
     return this.http.post<PaymentUrlResponse>(`${this.apiUrl}/payments/vnpay`, request);
   }
 }

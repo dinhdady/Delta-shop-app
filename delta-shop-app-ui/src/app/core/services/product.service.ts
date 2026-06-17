@@ -162,9 +162,9 @@ export class ProductService {
         featured: true
       },
       variants: [
-        { id: 'v1', name: 'Size 40', availableQuantity: 10, finalPrice: product.basePrice, inStock: true },
-        { id: 'v2', name: 'Size 41', availableQuantity: 5, finalPrice: product.basePrice, inStock: true },
-        { id: 'v3', name: 'Size 42', availableQuantity: 0, finalPrice: product.basePrice, inStock: false }
+        { id: `mock-variant-${product.id}-m`, name: 'Size M', availableQuantity: 10, finalPrice: product.basePrice, inStock: true },
+        { id: `mock-variant-${product.id}-l`, name: 'Size L', availableQuantity: 5, finalPrice: product.basePrice, inStock: true },
+        { id: `mock-variant-${product.id}-xl`, name: 'Size XL', availableQuantity: 0, finalPrice: product.basePrice, inStock: false }
       ],
       galleryImages: [product.primaryImage, 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?q=80&w=1000&auto=format&fit=crop'],
       relatedProducts: products.filter(p => p.id !== id)

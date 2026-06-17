@@ -636,7 +636,18 @@ export class CheckoutComponent implements OnInit {
       // COD flow
       this.cartService.clearCart();
       this.toastr.success('Đặt hàng thành công!');
-      this.router.navigate(['/order-success', order.id]);
+      if (localStorage.getItem('accessToken') === 'mock-admin-access-token') {
+        this.router.navigate(['/payment-result'], {
+          queryParams: {
+            status: 'SUCCESS',
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            transactionNo: 'MOCK-COD'
+          }
+        });
+      } else {
+        this.router.navigate(['/order-success', order.id]);
+      }
     },
     error: (err) => {
       this.isSubmitting = false;

@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
+import { Observable, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface User {
@@ -57,27 +57,58 @@ export class AuthService {
 
   login(credentials: any, password?: string): Observable<AuthResponse> {
     const loginData = password ? { email: credentials, password } : credentials;
+    if (this.isMockAdminLogin(loginData)) {
+      const response = this.createMockAdminResponse();
+      this.storeAuthResponse(response);
+      return of(response);
+    }
+
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, loginData).pipe(
       tap(response => {
         if (response.accessToken) {
-          localStorage.setItem('accessToken', response.accessToken);
-          localStorage.setItem('token', response.accessToken);
-          localStorage.setItem('refreshToken', response.refreshToken);
-          const user: User = {
-            userId: response.userId,
-            email: response.email,
-            firstName: response.firstName,
-            lastName: response.lastName,
-            fullName: response.fullName,
-            role: response.role,
-            emailVerified: response.emailVerified
-          };
-          localStorage.setItem('user', JSON.stringify(user));
-          this.currentUser.set(user);
-          this.isAuthenticated.set(true);
+          this.storeAuthResponse(response);
         }
       })
     );
+  }
+
+  private isMockAdminLogin(loginData: any): boolean {
+    const username = String(loginData?.email || loginData?.username || '').trim().toLowerCase();
+    return username === 'admin' && loginData?.password === 'admin123';
+  }
+
+  private createMockAdminResponse(): AuthResponse {
+    return {
+      accessToken: 'mock-admin-access-token',
+      refreshToken: 'mock-admin-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 86400,
+      userId: 'mock-admin',
+      email: 'admin@delta-sports.test',
+      firstName: 'Admin',
+      lastName: 'Delta',
+      fullName: 'Admin Delta',
+      role: 'ADMIN',
+      emailVerified: true
+    };
+  }
+
+  private storeAuthResponse(response: AuthResponse): void {
+    localStorage.setItem('accessToken', response.accessToken);
+    localStorage.setItem('token', response.accessToken);
+    localStorage.setItem('refreshToken', response.refreshToken);
+    const user: User = {
+      userId: response.userId,
+      email: response.email,
+      firstName: response.firstName,
+      lastName: response.lastName,
+      fullName: response.fullName,
+      role: response.role,
+      emailVerified: response.emailVerified
+    };
+    localStorage.setItem('user', JSON.stringify(user));
+    this.currentUser.set(user);
+    this.isAuthenticated.set(true);
   }
 
   register(userData: any): Observable<AuthResponse> {

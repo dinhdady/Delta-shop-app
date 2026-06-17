@@ -1,7 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { ProductService } from '../../core/services/product.service';
 import { CartService } from '../../core/services/cart.service';
 import { ToastrService } from 'ngx-toastr';
@@ -953,7 +952,6 @@ export class ProductDetailComponent implements OnInit {
   private productService = inject(ProductService);
   private cartService = inject(CartService);
   private toastr = inject(ToastrService);
-  private http = inject(HttpClient);
 
   product: ProductData | null = null;
   variants: any[] = [];
@@ -994,16 +992,20 @@ export class ProductDetailComponent implements OnInit {
   }
 
   loadProduct(id: string): void {
-    const apiUrl = `http://localhost:8080/api/products/id/${id}`;
     this.loading = true;
 
-    this.http.get<ProductDetailApiResponse>(apiUrl).subscribe({
+    this.productService.getProductById(id).subscribe({
       next: (response) => {
-        this.product = response.product;
+        this.product = this.mapProductDetail(response.product);
         this.variants = response.variants || [];
         this.relatedProducts = response.relatedProducts || [];
 
-        this.processImages(response);
+        this.processImages({
+          product: this.product,
+          variants: this.variants,
+          galleryImages: this.toProductImages(response.galleryImages || (response.product as any).galleryImages || response.product.images || []),
+          relatedProducts: this.relatedProducts
+        });
         this.selectDefaultVariant();
         this.loading = false;
       },
@@ -1012,6 +1014,62 @@ export class ProductDetailComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  private mapProductDetail(product: any): ProductData {
+    const images = this.toProductImages(product.images || product.galleryImages || [product.primaryImage].filter(Boolean));
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      sku: product.sku || `SKU-${product.id}`,
+      description: product.description || product.shortDescription || 'Sản phẩm chất lượng cao từ Delta Sports.',
+      shortDescription: product.shortDescription,
+      basePrice: product.basePrice,
+      comparePrice: product.comparePrice,
+      discountPercentage: product.discountPercentage,
+      stockQuantity: product.stockQuantity ?? 99,
+      status: product.status || 'ACTIVE',
+      featured: product.featured ?? true,
+      newArrival: product.newArrival ?? false,
+      bestSeller: product.bestSeller ?? false,
+      averageRating: product.averageRating,
+      reviewCount: product.reviewCount,
+      totalSold: product.totalSold,
+      totalViews: product.totalViews,
+      tags: product.tags || ['sports', 'delta'],
+      sportTypes: product.sportTypes || [],
+      images,
+      galleryImages: images,
+      category: product.category || { id: '1', name: 'Thể thao', slug: 'the-thao' },
+      brand: product.brand || { id: '1', name: 'Delta', slug: 'delta' },
+      sizeGuides: product.sizeGuides || [],
+      specifications: product.specifications || {
+        'Chất liệu': 'Cao cấp',
+        'Xuất xứ': 'Việt Nam',
+        'Bảo hành': '12 tháng'
+      }
+    };
+  }
+
+  private toProductImages(images: any[]): ProductImage[] {
+    return images.map((image, index) => {
+      if (typeof image === 'string') {
+        return {
+          url: image,
+          primary: index === 0,
+          sortOrder: index
+        };
+      }
+
+      return {
+        url: image.url || image.imageUrl || image,
+        publicId: image.publicId,
+        altText: image.altText,
+        sortOrder: image.sortOrder ?? index,
+        primary: image.primary ?? index === 0
+      };
+    }).filter(image => Boolean(image.url));
   }
 
   processImages(response: ProductDetailApiResponse): void {

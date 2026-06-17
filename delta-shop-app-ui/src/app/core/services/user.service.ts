@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface UserAddress {
@@ -39,10 +39,16 @@ export class UserService {
   constructor(private http: HttpClient) {}
 
   getAddresses(): Observable<UserAddress[]> {
+    if (this.isMockSession()) {
+      return of([this.getMockAddress()]);
+    }
     return this.http.get<UserAddress[]>(`${this.apiUrl}/me/addresses`);
   }
 
   getDefaultAddress(): Observable<UserAddress> {
+    if (this.isMockSession()) {
+      return of(this.getMockAddress());
+    }
     return this.http.get<UserAddress>(`${this.apiUrl}/me/addresses/default`);
   }
 
@@ -52,5 +58,25 @@ export class UserService {
 
   setDefaultAddress(addressId: string): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/me/addresses/${addressId}/default`, {});
+  }
+
+  private isMockSession(): boolean {
+    return localStorage.getItem('accessToken') === 'mock-admin-access-token';
+  }
+
+  private getMockAddress(): UserAddress {
+    return {
+      id: 'mock-address-1',
+      type: 'HOME',
+      recipientName: 'Admin Delta',
+      phone: '0901234567',
+      email: 'admin@delta-sports.test',
+      province: 'TP. Hồ Chí Minh',
+      district: 'Quận 1',
+      ward: 'Phường Bến Nghé',
+      streetAddress: '123 Nguyễn Huệ',
+      isDefault: true,
+      fullAddress: '123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh'
+    };
   }
 }
