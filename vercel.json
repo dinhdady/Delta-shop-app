@@ -1,0 +1,11 @@
+{
+  "installCommand": "cd delta-shop-app-ui && npm ci",
+  "buildCommand": "cd delta-shop-app-ui && npm run build",
+  "outputDirectory": "delta-shop-app-ui/dist/delta-shop-app-ui/browser",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
